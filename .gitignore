@@ -1,0 +1,14 @@
+# التبعيات
+node_modules/
+
+# أسرار الاتصال — لا تُرفع أبدًا
+.env
+.env.local
+env.js
+
+# نظام التشغيل / المحرر
+.DS_Store
+Thumbs.db
+*.log
+.vscode/
+.idea/

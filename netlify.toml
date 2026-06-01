@@ -1,0 +1,13 @@
+# إعدادات النشر على Netlify
+[build]
+  command = "node scripts/generate-env.js"
+  publish = "."
+
+[build.environment]
+  NODE_VERSION = "18"
+
+# توجيه الجذر إلى التطبيق الرئيسي (احتياط)
+[[redirects]]
+  from = "/"
+  to = "/index.html"
+  status = 200
