@@ -50,7 +50,7 @@
               </div>
             </div>
             <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <Select value={cur} onChange={e=>actions.setSetting('current_semester', e.target.value)} style={{ width:180 }}>
+              <Select value={cur} onChange={e=>actions.setSetting('current_semester', e.target.value)} style={{ width:'auto' }}>
                 {X.SEMESTERS.map(s=><option key={s.id} value={s.id}>{tr(s.name, lang)} — {tr(s.yearName, lang)}</option>)}
               </Select>
             </div>

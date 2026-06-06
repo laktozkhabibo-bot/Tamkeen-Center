@@ -153,6 +153,7 @@
   // -------- عمليات الكتابة (مرآة لـ actions القديمة) --------
   const ops = {
     markRead: (id) => sb.from('shared_items').update({ is_read: true }).eq('id', id),
+    deleteSharedItem: (id) => sb.from('shared_items').delete().eq('id', id),
     deleteAssignment: (id) => sb.from('assignments').delete().eq('id', id),
 
     addGrade: (studentId, g, by) => sb.from('grades').insert({
@@ -207,6 +208,16 @@
       p_attendance: f.attendanceGroup || null, p_section: f.managementSection || null,
     }),
     deleteUser: (accessKey) => sb.rpc('admin_delete_user', { p_key: accessKey }),
+    // تعديل بيانات مستخدم (الاسم/الهاتف/البريد/التخصصات/الصورة) — الإدارة فقط عبر RLS
+    editUser: (accessKey, f) => {
+      const patch = {};
+      if (f.name != null) patch.name = f.name;
+      if (f.phone !== undefined) patch.phone = f.phone || null;
+      if (f.email !== undefined) patch.email = f.email || null;
+      if (f.specializations !== undefined) patch.specializations = (f.specializations && f.specializations.length) ? f.specializations : null;
+      if (f.img !== undefined) patch.img_url = f.img || null;
+      return sb.from('profiles').update(patch).eq('access_key', accessKey);
+    },
     setUserImage: (accessKey, img) => sb.from('profiles').update({ img_url: img }).eq('access_key', accessKey),
 
     addCourse: (c, by) => sb.from('courses').insert({

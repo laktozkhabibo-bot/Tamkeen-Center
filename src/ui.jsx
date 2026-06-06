@@ -188,9 +188,86 @@
       onFocus={(e)=>{ e.target.style.borderColor = theme.primary; props.onFocus&&props.onFocus(e); }}
       onBlur={(e)=>{ e.target.style.borderColor = theme.line; props.onBlur&&props.onBlur(e); }} />;
   }
+  // قائمة منسدلة مخصّصة وأنيقة — بديل عن <select> الأصلي القبيح.
+  // تحافظ على نفس الواجهة (value / onChange / <option>) فلا تتغيّر مواضع الاستدعاء.
   function Select(props) {
-    const { style, children, ...rest } = props;
-    return <select {...rest} style={{ ...inputBase, appearance:'none', cursor:'pointer', backgroundImage:'none', ...style }}>{children}</select>;
+    const { style = {}, children, value, onChange, disabled, placeholder } = props;
+    const { width, ...restStyle } = style;
+    const [open, setOpen] = useState(false);
+    const [coords, setCoords] = useState(null);
+    const [hov, setHov] = useState(-1);
+    const btnRef = React.useRef(null);
+    const popRef = React.useRef(null);
+
+    const opts = [];
+    React.Children.forEach(children, (ch) => {
+      if (!ch || ch.type !== 'option') return;
+      opts.push({ value: ch.props.value, label: ch.props.children, disabled: ch.props.disabled });
+    });
+    const current = opts.find((o) => String(o.value) === String(value));
+
+    const place = () => {
+      if (!btnRef.current) return;
+      const r = btnRef.current.getBoundingClientRect();
+      const below = window.innerHeight - r.bottom;
+      const openUp = below < 240 && r.top > below; // افتح لأعلى إذا لم تكفِ المساحة بالأسفل
+      setCoords({
+        left: r.left,
+        right: window.innerWidth - r.right, // مرساة الحافة اليمنى (اتجاه RTL) كي تتمدّد القائمة يسارًا
+        width: r.width,
+        top: openUp ? null : r.bottom + 6,
+        bottom: openUp ? (window.innerHeight - r.top + 6) : null,
+      });
+    };
+    const openMenu = () => { if (disabled) return; place(); setHov(opts.findIndex((o) => String(o.value) === String(value))); setOpen(true); };
+
+    React.useEffect(() => {
+      if (!open) return;
+      const onDoc = (e) => {
+        if (btnRef.current && btnRef.current.contains(e.target)) return;
+        if (popRef.current && popRef.current.contains(e.target)) return;
+        setOpen(false);
+      };
+      const onScrollOrResize = () => setOpen(false);
+      document.addEventListener('mousedown', onDoc);
+      window.addEventListener('scroll', onScrollOrResize, true);
+      window.addEventListener('resize', onScrollOrResize);
+      return () => {
+        document.removeEventListener('mousedown', onDoc);
+        window.removeEventListener('scroll', onScrollOrResize, true);
+        window.removeEventListener('resize', onScrollOrResize);
+      };
+    }, [open]);
+
+    const choose = (v) => { setOpen(false); if (onChange) onChange({ target: { value: v } }); };
+    const auto = width === 'auto';
+    return (
+      <div style={{ position: 'relative', display: auto ? 'inline-block' : 'block', width: auto ? 'auto' : (width || '100%') }}>
+        <button ref={btnRef} type="button" disabled={disabled}
+          onClick={() => (open ? setOpen(false) : openMenu())}
+          style={{ ...inputBase, width: auto ? 'auto' : '100%', minWidth: auto ? 120 : undefined, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, cursor: disabled ? 'not-allowed' : 'pointer', textAlign: 'start', opacity: disabled ? 0.6 : 1, borderColor: open ? theme.primary : theme.line, boxShadow: open ? `0 0 0 3px ${theme.goldSoft}` : 'none', transition: 'border-color .15s ease, box-shadow .15s ease', ...restStyle }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: current ? theme.ink : theme.muted }}>{current ? current.label : (placeholder || '—')}</span>
+          <Icon name="chevronDown" size={16} color={theme.muted} style={{ flexShrink: 0, transition: 'transform .2s ease', transform: open ? 'rotate(180deg)' : 'none' }} />
+        </button>
+        {open && coords && ReactDOM.createPortal(
+          <div ref={popRef} style={{ position: 'fixed', right: coords.right, top: coords.top != null ? coords.top : undefined, bottom: coords.bottom != null ? coords.bottom : undefined, width: 'max-content', minWidth: Math.max(coords.width, 180), maxWidth: Math.max(220, window.innerWidth - coords.right - 14), zIndex: 200, background: theme.paper, border: `1px solid ${theme.line}`, borderRadius: 14, boxShadow: '0 22px 52px -16px rgba(50,46,38,.5)', padding: 6, maxHeight: 320, overflowY: 'auto', animation: 'tcFade .15s ease' }}>
+            {opts.length === 0 && <div style={{ padding: '9px 11px', fontSize: 13, color: theme.muted }}>—</div>}
+            {opts.map((o, i) => {
+              const sel = String(o.value) === String(value);
+              const hot = hov === i;
+              return (
+                <button key={i} type="button" disabled={o.disabled}
+                  onMouseEnter={() => setHov(i)}
+                  onClick={() => !o.disabled && choose(o.value)}
+                  style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8, width: '100%', padding: '9px 11px', borderRadius: 9, border: 'none', cursor: o.disabled ? 'default' : 'pointer', background: sel ? theme.goldSoft : (hot ? theme.creamDeep : 'transparent'), color: sel ? theme.primaryDeep : theme.ink, fontFamily: 'Cairo, sans-serif', fontSize: 13.5, fontWeight: sel ? 700 : 500, textAlign: 'start', opacity: o.disabled ? 0.45 : 1, transition: 'background .12s ease' }}>
+                  <span style={{ whiteSpace: 'normal', lineHeight: 1.45, wordBreak: 'break-word', textAlign: 'start' }}>{o.label}</span>
+                  {sel && <Icon name="check" size={15} color={theme.primary} style={{ flexShrink: 0, marginTop: 2 }} />}
+                </button>
+              );
+            })}
+          </div>, document.body)}
+      </div>
+    );
   }
   function Textarea(props) {
     const { style, ...rest } = props;

@@ -11,7 +11,7 @@
   const { useState } = React;
   const tr = (o, lang) => X.tr(o, lang);
 
-  function PeopleList({ lang, list, accent, onAdd, onDelete, role, db, onSelect, selId, t }) {
+  function PeopleList({ lang, list, accent, onAdd, onDelete, onEdit, role, db, onSelect, selId, t }) {
     const [q, setQ] = useState('');
     const filtered = list.filter(u=>u.name.includes(q)||u.accessKey.includes(q.toUpperCase()));
     return (
@@ -32,7 +32,22 @@
                       <p style={{ fontSize:13.5, fontWeight:600, color:theme.ink }}>{u.name}</p>
                       <span style={{ fontSize:11.5, color:theme.muted }} dir="ltr">{u.accessKey}</span>
                     </div>
-                    <button onClick={(e)=>{e.stopPropagation();onDelete(u.accessKey);}} style={{ background:'none', border:'none', cursor:'pointer', color:theme.bad, padding:5 }}><Icon name="trash" size={15} /></button>
+                    <div style={{ display:'flex', alignItems:'center', gap:2 }}>
+                      {onEdit && (
+                        <button onClick={(e)=>{e.stopPropagation();onEdit(u);}} title={t('edit')}
+                          style={{ width:30, height:30, borderRadius:8, background:'none', border:'none', cursor:'pointer', color:theme.primary, display:'flex', alignItems:'center', justifyContent:'center', transition:'background .15s ease' }}
+                          onMouseEnter={(e)=>e.currentTarget.style.background=theme.creamDeep}
+                          onMouseLeave={(e)=>e.currentTarget.style.background='none'}>
+                          <Icon name="edit" size={15} />
+                        </button>
+                      )}
+                      <button onClick={(e)=>{e.stopPropagation();onDelete(u.accessKey);}} title={t('delete')}
+                        style={{ width:30, height:30, borderRadius:8, background:'none', border:'none', cursor:'pointer', color:theme.bad, display:'flex', alignItems:'center', justifyContent:'center', transition:'background .15s ease' }}
+                        onMouseEnter={(e)=>e.currentTarget.style.background=theme.badBg}
+                        onMouseLeave={(e)=>e.currentTarget.style.background='none'}>
+                        <Icon name="trash" size={15} />
+                      </button>
+                    </div>
                   </div>
                 </Card>
               );
@@ -59,6 +74,7 @@
     const emptyForm = { name:'', accessKey:'', password:'', phone:'', email:'', img:null, specsText:'', diploma:'sunnah', attendanceGroup:'weekend', academicYear:'' };
     const [form, setForm] = useState(emptyForm);
     const [selTeacher, setSelTeacher] = useState(null);
+    const [editTarget, setEditTarget] = useState(null); // المستخدم قيد التعديل
 
     const tabs = [
       { id:'inbox', label:t('inbox'), icon:'inbox', badge:unread },
@@ -72,7 +88,11 @@
       { id:'cloud', label:t('cloudSystem'), icon:'cloud', badge:0 },
     ];
 
-    const openAdd = (role)=>{ setForm({ ...emptyForm }); setAddModal(role); };
+    const openAdd = (role)=>{ setForm({ ...emptyForm }); setEditTarget(null); setAddModal(role); };
+    const openEdit = (u)=>{
+      setForm({ name:u.name||'', accessKey:u.accessKey, password:'', phone:u.phone||'', email:u.email||'', img:u.img||null, specsText:(u.specializations||[]).join('، '), diploma:u.diploma||'sunnah', attendanceGroup:u.attendanceGroup||'weekend', academicYear:u.academicYear||'' });
+      setAddModal(null); setEditTarget(u);
+    };
     const saveAdd = ()=>{
       if(!form.name||!form.accessKey||!form.password) return;
       const payload = { name:form.name, accessKey:form.accessKey, password:form.password, phone:form.phone, email:form.email, img:form.img };
@@ -80,6 +100,13 @@
       if(addModal==='student'){ payload.diploma = form.diploma; payload.attendanceGroup = form.attendanceGroup; payload.academicYear = tr(X.diploma(form.diploma)&&X.diploma(form.diploma).name, lang); }
       actions.addUser(addModal, payload);
       setAddModal(null);
+    };
+    const saveEdit = ()=>{
+      if(!form.name||!editTarget) return;
+      const payload = { name:form.name, phone:form.phone, email:form.email, img:form.img };
+      if(editTarget.role==='teacher') payload.specializations = form.specsText.split(/[،,]/).map(s=>s.trim()).filter(Boolean);
+      actions.editUser(editTarget.accessKey, payload);
+      setEditTarget(null);
     };
 
     const selectedTeacher = teachers.find(x=>x.accessKey===selTeacher);
@@ -89,7 +116,7 @@
         tabs={tabs} active={active} setActive={setActive} onLogout={onLogout} onHome={onHome}
         onEditAvatar={(url)=>actions.setUserImage(uid, url)}>
 
-        {active==='inbox' && <InboxView items={inbox} users={db.users} lang={lang} onMarkRead={actions.markRead} onDownloadSchedule={downloadScheduleCSV} />}
+        {active==='inbox' && <InboxView items={inbox} users={db.users} lang={lang} onMarkRead={actions.markRead} onDownloadSchedule={downloadScheduleCSV} onDelete={actions.deleteSharedItem} />}
 
         {active==='admins' && isDirector && (
           <div style={{ maxWidth:560, margin:'0 auto' }}>
@@ -97,7 +124,7 @@
               <div style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="briefcase" size={19} color={theme.primary} /><h2 style={{ fontSize:18, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{t('admins')}</h2><Badge tone="neutral">{admins.length}</Badge></div>
               <Btn size="sm" variant="primary" icon="plus" onClick={()=>openAdd('management')}>{t('addAdmin')}</Btn>
             </div>
-            <PeopleList lang={lang} list={admins} accent={theme.primaryDeep} role="management" onDelete={actions.deleteUser} db={db} t={t} />
+            <PeopleList lang={lang} list={admins} accent={theme.primaryDeep} role="management" onDelete={actions.deleteUser} onEdit={openEdit} db={db} t={t} />
           </div>
         )}
 
@@ -108,7 +135,7 @@
                 <div style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="users" size={18} color={theme.primary} /><h3 style={{ fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{t('teachers')}</h3><Badge tone="neutral">{teachers.length}</Badge></div>
                 <Btn size="sm" variant="primary" icon="plus" onClick={()=>openAdd('teacher')}>{t('add')}</Btn>
               </div>
-              <PeopleList lang={lang} list={teachers} accent={theme.tan} role="teacher" onDelete={actions.deleteUser} db={db} t={t} onSelect={setSelTeacher} selId={selTeacher} />
+              <PeopleList lang={lang} list={teachers} accent={theme.tan} role="teacher" onDelete={actions.deleteUser} onEdit={openEdit} db={db} t={t} onSelect={setSelTeacher} selId={selTeacher} />
             </div>
             <div style={{ flex:1, minWidth:0 }}>
               {selectedTeacher ? (
@@ -139,23 +166,31 @@
         {active==='curriculum' && <CurriculumTab lang={lang} db={db} actions={actions} uid={uid} />}
         {active==='approval' && <ApprovalTab lang={lang} db={db} actions={actions} uid={uid} />}
 
-        {/* add user modal */}
-        {addModal && (
-          <Modal title={addModal==='teacher'?t('addTeacher'):addModal==='student'?t('addStudent'):t('addAdmin')} onClose={()=>setAddModal(null)} width={440}>
+        {/* add / edit user modal */}
+        {(addModal || editTarget) && (() => {
+          const isEdit = !!editTarget;
+          const role = isEdit ? editTarget.role : addModal;
+          const close = () => { setAddModal(null); setEditTarget(null); };
+          return (
+          <Modal title={isEdit ? `${t('edit')} — ${form.name||''}` : (role==='teacher'?t('addTeacher'):role==='student'?t('addStudent'):t('addAdmin'))} onClose={close} width={440}>
             <div style={{ display:'grid', gap:14 }}>
               <div style={{ display:'flex', alignItems:'center', gap:14 }}>
-                <AvatarUpload name={form.name||'?'} img={form.img} size={60} accent={addModal==='teacher'?theme.tan:addModal==='student'?theme.gold:theme.primaryDeep} onPick={(url)=>setForm({...form,img:url})} />
+                <AvatarUpload name={form.name||'?'} img={form.img} size={60} accent={role==='teacher'?theme.tan:role==='student'?theme.gold:theme.primaryDeep} onPick={(url)=>setForm({...form,img:url})} />
                 <div style={{ fontSize:12.5, color:theme.muted, lineHeight:1.6 }}>{t('photo')}<br/><span style={{ color:theme.mutedSoft }}>{lang==='ar'?'انقر على الصورة للاختيار من الجهاز':'Click the photo to choose from device'}</span></div>
               </div>
               <Field label={t('name')} required><Input value={form.name} onChange={e=>setForm({...form,name:e.target.value})} /></Field>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                <Field label={t('accessKey')} required><Input value={form.accessKey} onChange={e=>setForm({...form,accessKey:e.target.value})} placeholder={addModal==='teacher'?'T102':addModal==='student'?'S160':'K102'} dir="ltr" /></Field>
-                <Field label={t('password')} required><Input value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="****" dir="ltr" /></Field>
-              </div>
-              {addModal==='teacher' && (
+              {isEdit ? (
+                <Field label={t('accessKey')} hint={lang==='ar'?'لا يمكن تغيير مفتاح الدخول':'Access key cannot be changed'}><Input value={form.accessKey} disabled dir="ltr" style={{ background:theme.creamDeep, color:theme.muted, cursor:'not-allowed' }} /></Field>
+              ) : (
+                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
+                  <Field label={t('accessKey')} required><Input value={form.accessKey} onChange={e=>setForm({...form,accessKey:e.target.value})} placeholder={role==='teacher'?'T102':role==='student'?'S160':'K102'} dir="ltr" /></Field>
+                  <Field label={t('password')} required><Input value={form.password} onChange={e=>setForm({...form,password:e.target.value})} placeholder="****" dir="ltr" /></Field>
+                </div>
+              )}
+              {role==='teacher' && (
                 <Field label={t('specializations')} hint={t('specsHint')}><Input value={form.specsText} onChange={e=>setForm({...form,specsText:e.target.value})} placeholder={lang==='ar'?'العقيدة، علم الرجال':'Aqidah, Rijal'} /></Field>
               )}
-              {addModal==='student' && (
+              {role==='student' && !isEdit && (
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                   <Field label={t('diploma')}><Select value={form.diploma} onChange={e=>setForm({...form,diploma:e.target.value})}>{X.DIPLOMAS.map(d=><option key={d.id} value={d.id}>{tr(d.name,lang)}</option>)}</Select></Field>
                   <Field label={t('attendanceGroup')}>
@@ -173,12 +208,13 @@
                 <Field label={t('email')}><Input value={form.email} onChange={e=>setForm({...form,email:e.target.value})} dir="ltr" /></Field>
               </div>
               <div style={{ display:'flex', gap:10 }}>
-                <Btn full variant="soft" onClick={()=>setAddModal(null)}>{t('cancel')}</Btn>
-                <Btn full variant="primary" onClick={saveAdd}>{t('add')}</Btn>
+                <Btn full variant="soft" onClick={close}>{t('cancel')}</Btn>
+                <Btn full variant="primary" icon={isEdit?'check':undefined} onClick={isEdit?saveEdit:saveAdd}>{isEdit?t('save'):t('add')}</Btn>
               </div>
             </div>
           </Modal>
-        )}
+          );
+        })()}
       </DashShell>
     );
   }

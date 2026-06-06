@@ -126,10 +126,15 @@
     );
   }
 
-  function InboxView({ items, users, lang, onMarkRead, onDownloadSchedule }) {
+  function InboxView({ items, users, lang, onMarkRead, onDownloadSchedule, onDelete }) {
     const t = L(lang);
     const [open, setOpen] = useState(null);
     const unread = items.filter(i=>!i.isRead).length;
+    const doDelete = async (e, id) => {
+      e.stopPropagation();
+      const ok = await window.UI.confirm({ title: lang==='ar'?'حذف الرسالة':'Delete message', message: lang==='ar'?'هل تريد حذف هذه الرسالة نهائيًا من صندوق الوارد؟':'Permanently delete this message from your inbox?', confirmText: lang==='ar'?'حذف':'Delete', icon:'trash' });
+      if (ok) onDelete && onDelete(id);
+    };
     const sender = (id) => {
       const u = users.find(x=>x.accessKey===id);
       if (!u) return { name:id, label:'' };
@@ -169,6 +174,12 @@
                       </div>
                     </div>
                     <Icon name={isOpen?'chevronUp':'chevronDown'} size={17} color={theme.mutedSoft} />
+                    {onDelete && (
+                      <button onClick={(e)=>doDelete(e, item.id)} title={lang==='ar'?'حذف الرسالة':'Delete message'}
+                        style={{ width:32, height:32, borderRadius:9, background:theme.badBg, border:'none', color:theme.bad, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
+                        <Icon name="trash" size={15} />
+                      </button>
+                    )}
                   </div>
                   {isOpen && (
                     <div style={{ borderTop:`1px solid ${theme.lineSoft}`, padding:16 }}>
