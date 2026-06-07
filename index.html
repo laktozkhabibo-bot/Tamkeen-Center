@@ -28,11 +28,16 @@
   button { font-family: 'Cairo', sans-serif; }
   input, select, textarea { font-family: 'Cairo', sans-serif; }
   ::selection { background: #E9D9B6; }
-  /* scrollbar */
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  /* scrollbar — slim & subtle */
+  * { scrollbar-width: thin; scrollbar-color: #DCD0B4 transparent; }
+  ::-webkit-scrollbar { width: 7px; height: 7px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: #D8CCB0; border-radius: 999px; border: 2px solid #F4EFE3; }
-  ::-webkit-scrollbar-thumb:hover { background: #C2B391; }
+  ::-webkit-scrollbar-thumb { background: #DCD0B4; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #C7B894; }
+
+  /* horizontal tab strip — scrollbar hidden, replaced by edge arrows in JS */
+  .tc-tabscroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; -ms-overflow-style: none; -webkit-overflow-scrolling: touch; }
+  .tc-tabscroll::-webkit-scrollbar { display: none; height: 0; width: 0; }
 
   @keyframes tcFade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   @keyframes tcMarquee { from { transform: translateX(0); } to { transform: translateX(-50%); } }
@@ -53,6 +58,16 @@
   }
   @media (max-width: 560px) {
     .tc-stats-grid { grid-template-columns: 1fr 1fr !important; }
+  }
+
+  /* dashboard shell — mobile breathing room */
+  @media (max-width: 640px) {
+    .tc-dash-bar { padding: 10px 14px !important; gap: 10px !important; }
+    .tc-dash-tabs { padding: 0 10px !important; }
+    .tc-dash-tabs button { padding: 12px 12px !important; font-size: 13.5px !important; }
+    .tc-dash-main { padding: 20px 14px 44px !important; }
+    .tc-iconbtn-label { display: none !important; }
+    .tc-iconbtn { width: 38px !important; padding: 0 !important; justify-content: center !important; }
   }
 </style>
 </head>

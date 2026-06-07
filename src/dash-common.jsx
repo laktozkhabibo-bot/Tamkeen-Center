@@ -58,25 +58,99 @@
     );
   }
 
+  // ---- Tab strip with edge-arrow scrolling (no visible scrollbar) ------
+  function TabBar({ tabs, active, setActive }) {
+    const ref = React.useRef(null);
+    const [edges, setEdges] = React.useState({ start:false, end:false });
+    const rtl = typeof document !== 'undefined' && document.documentElement.getAttribute('dir') !== 'ltr';
+
+    const recompute = React.useCallback(() => {
+      const el = ref.current; if (!el) return;
+      const max = el.scrollWidth - el.clientWidth;
+      if (max <= 2) { setEdges({ start:false, end:false }); return; }
+      const dist = Math.abs(el.scrollLeft);            // 0 at start … max at end (RTL-safe in modern browsers)
+      setEdges({ start: dist > 3, end: dist < max - 3 });
+    }, []);
+
+    React.useEffect(() => {
+      const el = ref.current; if (!el) return;
+      recompute();
+      const t1 = setTimeout(recompute, 120);           // after fonts settle
+      const t2 = setTimeout(recompute, 400);
+      el.addEventListener('scroll', recompute, { passive:true });
+      window.addEventListener('resize', recompute);
+      return () => { el.removeEventListener('scroll', recompute); window.removeEventListener('resize', recompute); clearTimeout(t1); clearTimeout(t2); };
+    }, [recompute, tabs.length]);
+
+    // dir:+1 → toward end, -1 → toward start
+    const nudge = (dir) => {
+      const el = ref.current; if (!el) return;
+      const amt = Math.max(160, el.clientWidth * 0.6);
+      el.scrollBy({ left: (rtl ? -dir : dir) * amt, behavior:'smooth' });
+    };
+
+    const Arrow = ({ where }) => {
+      // start = beginning edge (inline-start), end = far edge (inline-end)
+      const show = where === 'start' ? edges.start : edges.end;
+      const physicalStart = where === 'start' ? (rtl ? 'right' : 'left') : (rtl ? 'left' : 'right');
+      const icon = where === 'start' ? (rtl ? 'chevronRight' : 'chevronLeft') : (rtl ? 'chevronLeft' : 'chevronRight');
+      return (
+        <div aria-hidden={!show} style={{ position:'absolute', top:0, bottom:0, [where==='start'?'insetInlineStart':'insetInlineEnd']:0,
+          display:'flex', alignItems:'center', paddingInline:8, zIndex:5,
+          pointerEvents: show?'auto':'none', opacity: show?1:0, transition:'opacity .22s ease',
+          background:`linear-gradient(to ${physicalStart}, ${theme.paper} 46%, rgba(255,255,255,0))` }}>
+          <button onClick={()=>nudge(where==='start'?-1:1)} title={where==='start'?'تحريك':'تحريك'}
+            style={{ display:'flex', alignItems:'center', justifyContent:'center', width:30, height:30, borderRadius:'50%',
+              background:theme.paper, border:`1px solid ${theme.line}`, color:theme.primaryDeep, cursor:'pointer',
+              boxShadow:'0 4px 12px -4px rgba(71,60,40,.3)' }}
+            onMouseEnter={(e)=>{ e.currentTarget.style.background=theme.goldSoft; }}
+            onMouseLeave={(e)=>{ e.currentTarget.style.background=theme.paper; }}>
+            <Icon name={icon} size={17} />
+          </button>
+        </div>
+      );
+    };
+
+    return (
+      <div style={{ position:'relative', borderTop:`1px solid ${theme.lineSoft}` }}>
+        <nav ref={ref} className="tc-dash-tabs tc-tabscroll" style={{ display:'flex', gap:2, padding:'0 14px' }}>
+          {tabs.map(tab=>{
+            const on = active===tab.id;
+            return (
+              <button key={tab.id} data-tab={tab.id} onClick={()=>setActive(tab.id)} style={{ display:'flex', alignItems:'center', gap:8, padding:'13px 16px', fontSize:14, fontWeight:600, whiteSpace:'nowrap',
+                color:on?theme.ink:theme.muted, background:'none', border:'none', borderBottom:on?`2.5px solid ${theme.primary}`:'2.5px solid transparent', cursor:'pointer', fontFamily:'Cairo, sans-serif', marginBottom:-1, flexShrink:0 }}>
+                <Icon name={tab.icon} size={17} color={on?theme.primary:theme.mutedSoft} />
+                {tab.label}
+                {tab.badge>0 && <span style={{ fontSize:11, fontWeight:700, minWidth:18, textAlign:'center', padding:'1px 5px', borderRadius:999, background:theme.primary, color:'#fff' }}>{tab.badge}</span>}
+              </button>
+            );
+          })}
+        </nav>
+        <Arrow where="start" />
+        <Arrow where="end" />
+      </div>
+    );
+  }
+
   function DashShell({ user, lang, setLang, panelLabel, accent, tabs, active, setActive, onLogout, onHome, onEditAvatar, children }) {
     const t = L(lang);
     const [calc, setCalc] = useState(false);
     return (
       <div style={{ minHeight:'100vh', background:theme.cream, display:'flex', flexDirection:'column' }}>
         <header style={{ position:'sticky', top:0, zIndex:40, background:theme.paper, borderBottom:`1px solid ${theme.line}`, boxShadow:'0 2px 12px -8px rgba(71,60,40,.35)' }}>
-          <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'11px 22px' }}>
-            <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+          <div className="tc-dash-bar" style={{ display:'flex', alignItems:'center', justifyContent:'space-between', gap:12, padding:'11px 22px' }}>
+            <div style={{ display:'flex', alignItems:'center', gap:12, minWidth:0 }}>
               {onEditAvatar
                 ? <AvatarUpload name={user.name} img={user.img} size={40} accent={accent} onPick={onEditAvatar} />
                 : <Avatar name={user.name} img={user.img} size={40} accent={accent} />}
-              <div>
-                <p style={{ fontSize:14.5, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{user.name}</p>
-                <p style={{ fontSize:12, color:theme.muted }}>{panelLabel}</p>
+              <div style={{ minWidth:0 }}>
+                <p style={{ fontSize:14.5, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif', whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{user.name}</p>
+                <p style={{ fontSize:12, color:theme.muted, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }}>{panelLabel}</p>
               </div>
             </div>
-            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
-              <button onClick={()=>setLang(lang==='ar'?'en':'ar')} style={{ display:'flex', alignItems:'center', gap:6, height:38, boxSizing:'border-box', background:theme.creamDeep, border:`1px solid ${theme.line}`, borderRadius:10, padding:'0 13px', color:theme.brown, cursor:'pointer', fontFamily:'Cairo, sans-serif', fontWeight:600, fontSize:13 }}>
-                <Icon name="globe" size={15} /> {t('langLabel')}
+            <div style={{ display:'flex', alignItems:'center', gap:8, flexShrink:0 }}>
+              <button onClick={()=>setLang(lang==='ar'?'en':'ar')} title={t('langLabel')} className="tc-iconbtn" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, height:38, boxSizing:'border-box', background:theme.creamDeep, border:`1px solid ${theme.line}`, borderRadius:10, padding:'0 13px', color:theme.brown, cursor:'pointer', fontFamily:'Cairo, sans-serif', fontWeight:600, fontSize:13 }}>
+                <Icon name="globe" size={15} /> <span className="tc-iconbtn-label">{t('langLabel')}</span>
               </button>
               <div style={{ position:'relative', display:'flex' }}>
                 <button onClick={()=>setCalc(!calc)} title={lang==='ar'?'الآلة الحاسبة':'Calculator'} style={{ display:'flex', alignItems:'center', justifyContent:'center', height:38, width:42, boxSizing:'border-box', background:calc?theme.goldSoft:theme.creamDeep, border:`1px solid ${calc?theme.gold:theme.line}`, borderRadius:10, color:calc?theme.primaryDeep:theme.brown, cursor:'pointer' }}>
@@ -84,26 +158,14 @@
                 </button>
                 {calc && <Calculator lang={lang} onClose={()=>setCalc(false)} />}
               </div>
-              <button onClick={onLogout} style={{ display:'flex', alignItems:'center', gap:6, height:38, boxSizing:'border-box', background:theme.badBg, border:`1px solid ${theme.badBg}`, borderRadius:10, padding:'0 14px', color:theme.bad, cursor:'pointer', fontFamily:'Cairo, sans-serif', fontWeight:600, fontSize:13, whiteSpace:'nowrap' }}>
-                <Icon name="logout" size={15} /> {t('logout')}
+              <button onClick={onLogout} title={t('logout')} className="tc-iconbtn" style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:6, height:38, boxSizing:'border-box', background:theme.badBg, border:`1px solid ${theme.badBg}`, borderRadius:10, padding:'0 14px', color:theme.bad, cursor:'pointer', fontFamily:'Cairo, sans-serif', fontWeight:600, fontSize:13, whiteSpace:'nowrap' }}>
+                <Icon name="logout" size={15} /> <span className="tc-iconbtn-label">{t('logout')}</span>
               </button>
             </div>
           </div>
-          <nav style={{ display:'flex', gap:2, padding:'0 14px', borderTop:`1px solid ${theme.lineSoft}`, overflowX:'auto' }}>
-            {tabs.map(tab=>{
-              const on = active===tab.id;
-              return (
-                <button key={tab.id} onClick={()=>setActive(tab.id)} style={{ display:'flex', alignItems:'center', gap:8, padding:'13px 16px', fontSize:14, fontWeight:600, whiteSpace:'nowrap',
-                  color:on?theme.ink:theme.muted, background:'none', border:'none', borderBottom:on?`2.5px solid ${theme.primary}`:'2.5px solid transparent', cursor:'pointer', fontFamily:'Cairo, sans-serif', marginBottom:-1 }}>
-                  <Icon name={tab.icon} size={17} color={on?theme.primary:theme.mutedSoft} />
-                  {tab.label}
-                  {tab.badge>0 && <span style={{ fontSize:11, fontWeight:700, minWidth:18, textAlign:'center', padding:'1px 5px', borderRadius:999, background:theme.primary, color:'#fff' }}>{tab.badge}</span>}
-                </button>
-              );
-            })}
-          </nav>
+          <TabBar tabs={tabs} active={active} setActive={setActive} />
         </header>
-        <main style={{ flex:1, padding:'26px 22px 50px', maxWidth:1180, margin:'0 auto', width:'100%' }}>{children}</main>
+        <main className="tc-dash-main" style={{ flex:1, padding:'26px 22px 50px', maxWidth:1180, margin:'0 auto', width:'100%' }}>{children}</main>
       </div>
     );
   }
