@@ -230,6 +230,9 @@ create policy shared_insert on public.shared_items for insert to authenticated
 drop policy if exists shared_update on public.shared_items;
 create policy shared_update on public.shared_items for update to authenticated
   using ( to_user_id = public.current_access_key() );
+drop policy if exists shared_delete on public.shared_items;
+create policy shared_delete on public.shared_items for delete to authenticated
+  using ( to_user_id = public.current_access_key() or from_user_id = public.current_access_key() or public.is_staff() );
 
 -- cloud_items (المالك فقط) --------------------------------------------
 drop policy if exists cloud_all on public.cloud_items;
