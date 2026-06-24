@@ -317,7 +317,7 @@
                     <p style={{ fontSize:13, color:theme.muted }} dir="ltr">{selected.accessKey}</p>
                     <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4, flexWrap:'wrap' }}>
                       <span style={{ fontSize:13, color:theme.brown }}>{selected.diploma ? tr(X.diploma(selected.diploma)&&X.diploma(selected.diploma).name) : (selected.academicYear||'')}</span>
-                      {selected.attendanceGroup && <Badge tone="neutral">{selected.attendanceGroup==='weekend'?t('weekend'):t('weekday')}</Badge>}
+                      {selected.section && <Badge tone="neutral">{X.sectionLabel(selected.section, lang)}</Badge>}
                     </div>
                   </div>
                   <ScoreRing value={beh} size={88} label={t('behavior')} />
