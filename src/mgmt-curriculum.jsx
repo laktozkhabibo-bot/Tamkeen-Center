@@ -7,7 +7,7 @@
 (function () {
   const { theme, L, Icon } = window.TC;
   const { Avatar, AvatarUpload, Btn, Badge, Card, EmptyState, Field, Input, Select, Modal, readFileAsDataURL } = window.UI;
-  const { SemesterBanner, GradeBreakdown, StatusBadge } = window.CoursesUI;
+  const { SemesterBanner, GradeBreakdown, StatusBadge, CourseFileLink } = window.CoursesUI;
   const X = window.TCX;
   const { useState } = React;
   const tr = (o, lang) => X.tr(o, lang);
@@ -26,11 +26,24 @@
     const courses = (db.courses||[]).filter(c=>c.diploma===dip && c.semester===sem);
 
     const openNew = ()=>{ setForm({ name:'', code:X.nextCode(db.courses||[], dip, sem), link:'', fileData:'', fileName:'', diploma:dip, semester:sem }); setCourseModal({}); };
-    const openEdit = (c)=>{ setForm({ name:c.name, code:c.code, link:c.link||'', fileData:c.fileData||'', fileName:c.fileName||'', diploma:c.diploma, semester:c.semester }); setCourseModal(c); };
+    const openEdit = async (c)=>{
+      setForm({ name:c.name, code:c.code, link:c.link||'', fileData:c.fileData||'', fileName:c.fileName||'', diploma:c.diploma, semester:c.semester });
+      setCourseModal(c);
+      // جلب محتوى الملف في الخلفية حتى لا يُفقد عند الحفظ
+      if(!c.fileData && (c.hasFile || c.fileName)){
+        try { const f = await window.TCData.getCourseFile(c.id); if(f && f.fileData) setForm(prev=>({ ...prev, fileData:f.fileData, fileName:f.fileName||prev.fileName })); } catch {}
+      }
+    };
     const saveCourse = ()=>{
       if(!form.name.trim()||!form.code.trim()) return;
-      if(courseModal && courseModal.id) actions.editCourse(courseModal.id, form);
-      else actions.addCourse(form);
+      if(courseModal && courseModal.id){
+        const payload = { ...form };
+        // تعديل دون تغيير الملف (له اسم لكن لم يُحمّل محتواه بعد) — لا تمسحه
+        if(!payload.fileData && payload.fileName) payload.keepFile = true;
+        actions.editCourse(courseModal.id, payload);
+      } else {
+        actions.addCourse(form);
+      }
       setCourseModal(null);
     };
 
@@ -106,7 +119,7 @@
                       <div style={{ display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
                         <span style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12.5, color:theme.brown, fontWeight:600 }}><Icon name="users" size={14} color={theme.primary} /> {courseEnrollCount(c.id)} {t('students')}</span>
                         <button onClick={()=>setEnrollFor(c)} style={{ fontSize:12, fontWeight:600, color:theme.primary, background:theme.creamDeep, border:'none', borderRadius:8, padding:'4px 10px', cursor:'pointer', fontFamily:'Cairo, sans-serif' }}>{t('assignStudents')}</button>
-                        {(c.fileData||c.link) && <a href={c.fileData||c.link} download={c.fileName||undefined} target="_blank" rel="noopener" style={{ fontSize:12, color:theme.primary, fontWeight:600, textDecoration:'none', display:'inline-flex', alignItems:'center', gap:4 }}><Icon name="download" size={13} />{c.fileName||t('openFile')}</a>}
+                        {(c.hasFile||c.fileData||c.link) && <CourseFileLink course={c} lang={lang} style={{ fontSize:12, marginTop:0 }} />}
                       </div>
                     </div>
                     <div style={{ display:'flex', flexDirection:'column', gap:6 }}>
@@ -329,10 +342,12 @@
   // ============================================ لوحة إسناد المعلم (داخل تبويب المعلمين)
   function TeacherAssignPanel({ teacher, lang, db, actions }) {
     const t = L(lang);
-    const [pickStud, setPickStud] = useState(false);
     const myCourses = (db.courseTeachers||[]).filter(ct=>ct.teacherId===teacher.accessKey)
       .map(ct=>(db.courses||[]).find(c=>c.id===ct.courseId)).filter(Boolean);
-    const myStuds = (db.teacherStudents||[]).filter(ts=>ts.teacherId===teacher.accessKey);
+    const mySections = (db.teacherSections||[]).filter(ts=>ts.teacherId===teacher.accessKey);
+    const mySectionKeys = mySections.map(s=>s.section);
+    const countIn = (key)=> db.users.filter(u=>u.role==='student' && u.section===key).length;
+    const totalStuds = db.users.filter(u=>u.role==='student' && mySectionKeys.includes(u.section)).length;
 
     return (
       <div>
@@ -348,64 +363,54 @@
           </div>
         )}
 
-        {/* الطلاب الموكلون */}
-        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12 }}>
-          <div style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="users" size={17} color={theme.primary} /><h3 style={{ fontSize:15, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{t('myDelegatedStudents')}</h3><Badge tone="neutral">{myStuds.length}</Badge></div>
-          <Btn size="sm" variant="primary" icon="plus" onClick={()=>setPickStud(true)}>{t('assignStudentsToTeacher')}</Btn>
+        {/* المجموعات الموكلة */}
+        <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:12, flexWrap:'wrap', gap:10 }}>
+          <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+            <Icon name="users" size={17} color={theme.primary} />
+            <h3 style={{ fontSize:15, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{lang==='ar'?'المجموعات الموكلة':'Assigned sections'}</h3>
+            <Badge tone="neutral">{mySections.length}</Badge>
+            {totalStuds>0 && <span style={{ fontSize:12, color:theme.muted }}>· {totalStuds} {t('students')}</span>}
+          </div>
+          <SectionPicker assigned={mySectionKeys} onPick={(key)=>actions.assignSection(teacher.accessKey, key)} lang={lang} />
         </div>
-        {myStuds.length===0 ? <EmptyState icon="users" title={t('none')} /> : (
+        <p style={{ fontSize:12, color:theme.muted, marginBottom:14, display:'flex', alignItems:'center', gap:6, lineHeight:1.7 }}>
+          <Icon name="info" size={13} color={theme.muted} style={{ flexShrink:0, marginTop:2 }} />
+          {lang==='ar'?'يُسنَد المعلم لمجموعة كاملة؛ كل طلابها (الحاليون والجدد) يصبحون طلابه تلقائيًا، ويصله إشعار في صندوق الوارد.':'Assign a whole section; all its students (current and future) become the teacher\u2019s automatically, and the teacher is notified.'}
+        </p>
+        {mySections.length===0 ? <EmptyState icon="users" title={lang==='ar'?'لا مجموعات موكلة بعد':'No sections assigned yet'} /> : (
           <div style={{ display:'grid', gap:8 }}>
-            {myStuds.map(ts=>{
-              const s = db.users.find(u=>u.accessKey===ts.studentId);
-              if(!s) return null;
-              return (
-                <div key={ts.id} style={{ display:'flex', alignItems:'center', gap:11, padding:'9px 12px', borderRadius:11, background:theme.paperAlt }}>
-                  <Avatar name={s.name} img={s.img} size={34} accent={theme.gold} />
-                  <div style={{ flex:1, minWidth:0 }}><p style={{ fontSize:13.5, fontWeight:600, color:theme.ink }}>{s.name}</p><span style={{ fontSize:11.5, color:theme.muted }} dir="ltr">{s.accessKey}</span></div>
-                  <StatusBadge status={s.status} lang={lang} />
-                  <button onClick={()=>actions.unassignTeacherStudent(ts.id)} style={{ background:'none', border:'none', cursor:'pointer', color:theme.bad, padding:4 }}><Icon name="x" size={15} /></button>
-                </div>
-              );
-            })}
+            {mySections.map(ts=>(
+              <div key={ts.id} style={{ display:'flex', alignItems:'center', gap:11, padding:'11px 14px', borderRadius:11, background:theme.paperAlt }}>
+                <div style={{ width:34, height:34, borderRadius:9, background:theme.goldSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Icon name="users" size={16} color={theme.primaryDeep} /></div>
+                <div style={{ flex:1, minWidth:0 }}><p style={{ fontSize:13.5, fontWeight:700, color:theme.ink }}>{X.sectionLabel(ts.section, lang)}</p><span style={{ fontSize:11.5, color:theme.muted }}>{countIn(ts.section)} {t('students')}</span></div>
+                <button onClick={()=>actions.unassignSection(ts.id)} title={t('delete')} style={{ background:'none', border:'none', cursor:'pointer', color:theme.bad, padding:4 }}><Icon name="x" size={16} /></button>
+              </div>
+            ))}
           </div>
         )}
-
-        {pickStud && <AssignStudentsModal teacher={teacher} db={db} actions={actions} lang={lang} onClose={()=>setPickStud(false)} />}
       </div>
     );
   }
 
-  function AssignStudentsModal({ teacher, db, actions, lang, onClose }) {
-    const t = L(lang);
-    const [q, setQ] = useState('');
-    const studs = db.users.filter(u=>u.role==='student');
-    const assigned = (db.teacherStudents||[]).filter(ts=>ts.teacherId===teacher.accessKey);
-    const assignedIds = assigned.map(ts=>ts.studentId);
-    const filtered = studs.filter(s=>s.name.includes(q)||s.accessKey.includes(q.toUpperCase()));
-    const toggle = (s)=>{
-      const rec = assigned.find(ts=>ts.studentId===s.accessKey);
-      if(rec) actions.unassignTeacherStudent(rec.id); else actions.assignTeacherStudent(teacher.accessKey, s.accessKey);
-    };
+  // قائمة منسدلة لاختيار مجموعة/فصل لإسناده للمعلم
+  function SectionPicker({ assigned, onPick, lang }) {
+    const [open, setOpen] = useState(false);
+    const avail = X.allSections().filter(s=>!assigned.includes(s.key));
     return (
-      <Modal title={`${t('assignStudentsToTeacher')} — ${teacher.name}`} onClose={onClose} width={460}>
-        <div style={{ position:'relative', marginBottom:12 }}>
-          <Icon name="search" size={15} color={theme.muted} style={{ position:'absolute', insetInlineStart:12, top:'50%', transform:'translateY(-50%)' }} />
-          <Input value={q} onChange={e=>setQ(e.target.value)} placeholder={t('search')} style={{ paddingInlineStart:36 }} />
-        </div>
-        <div style={{ display:'grid', gap:6, maxHeight:360, overflowY:'auto' }}>
-          {filtered.map(s=>{
-            const on = assignedIds.includes(s.accessKey);
-            return (
-              <button key={s.accessKey} onClick={()=>toggle(s)} style={{ display:'flex', alignItems:'center', gap:10, padding:'8px 10px', borderRadius:11, background:on?theme.goldSoft:theme.paperAlt, border:'none', cursor:'pointer', textAlign:lang==='ar'?'right':'left' }}>
-                <Avatar name={s.name} img={s.img} size={30} accent={theme.gold} />
-                <div style={{ flex:1, minWidth:0 }}><p style={{ fontSize:13, fontWeight:600, color:theme.ink }}>{s.name}</p><span style={{ fontSize:11, color:theme.muted }} dir="ltr">{s.accessKey}</span></div>
-                {s.diploma && <Badge tone="neutral">{tr(X.diploma(s.diploma)?.short, lang)}</Badge>}
-                <span style={{ width:20, height:20, borderRadius:6, border:`1.5px solid ${on?theme.primary:theme.line}`, background:on?theme.primary:'transparent', display:'flex', alignItems:'center', justifyContent:'center' }}>{on && <Icon name="check" size={13} color="#fff" />}</span>
-              </button>
-            );
-          })}
-        </div>
-      </Modal>
+      <div style={{ position:'relative' }}>
+        <Btn size="sm" variant="primary" icon="plus" onClick={()=>setOpen(!open)}>{lang==='ar'?'إسناد مجموعة':'Assign section'}</Btn>
+        {open && (
+          <div style={{ position:'absolute', top:'calc(100% + 6px)', insetInlineEnd:0, zIndex:30, background:theme.paper, border:`1px solid ${theme.line}`, borderRadius:12, boxShadow:'0 14px 34px -16px rgba(71,60,40,.4)', padding:6, minWidth:264, maxHeight:300, overflowY:'auto' }}>
+            {avail.length===0 ? <p style={{ fontSize:12, color:theme.muted, padding:'8px 10px' }}>{lang==='ar'?'كل المجموعات مُسندة':'All sections assigned'}</p> :
+              avail.map(s=>(
+                <button key={s.key} onClick={()=>{onPick(s.key);setOpen(false);}} style={{ display:'flex', alignItems:'center', gap:9, width:'100%', padding:'8px 10px', borderRadius:9, background:'none', border:'none', cursor:'pointer', textAlign:lang==='ar'?'right':'left', fontFamily:'Cairo, sans-serif' }}>
+                  <span style={{ width:8, height:8, borderRadius:'50%', background:s.diploma==='arabic'?theme.gold:theme.primary, flexShrink:0 }} />
+                  <span style={{ fontSize:12.5, fontWeight:600, color:theme.ink }}>{X.sectionLabel(s.key, lang)}</span>
+                </button>
+              ))}
+          </div>
+        )}
+      </div>
     );
   }
 
