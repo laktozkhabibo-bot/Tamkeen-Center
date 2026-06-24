@@ -386,8 +386,8 @@
     return (
       <div>
         <PageHead lang={lang} title={t('dipTitle')} sub={t('dipSub')} icon="scroll" />
-        <div style={{ maxWidth:1100, margin:'0 auto', padding:'clamp(40px,6vw,72px) 22px' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(4, 1fr)', gap:18 }} className="tc-stats-grid">
+        <div style={{ maxWidth:1040, margin:'0 auto', padding:'clamp(40px,6vw,72px) 22px' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:24 }} className="tc-diploma-grid">
             {diplomas.map((d)=>(
               <Card key={d.id} pad={0} hover style={{ overflow:'hidden', display:'flex', flexDirection:'column' }}>
                 <div style={{ height:130, background:`linear-gradient(150deg, ${d.color}, ${theme.primaryDeep})`, position:'relative', display:'flex', alignItems:'center', justifyContent:'center' }}>
