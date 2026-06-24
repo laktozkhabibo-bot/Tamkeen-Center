@@ -126,6 +126,9 @@
       } catch (e) { alert(friendlyErr(e)); reload(); }
     });
 
+    // إشعار صامت: لا يُنبّه ولا يُعيد المزامنة عند الفشل (الإسناد نفسه هو المهم)
+    const notify = (fn) => enqueue(async () => { try { await fn(); } catch (e) { console.warn('notify', e); } });
+
     // تحديث/حذف متفائل: تعديل محلي فوري + كتابة بالخلفية (لا إعادة تحميل عند النجاح)
     const optMut = (patch, write) => (...a) => { patch(...a); bg(() => write(...a)); };
 
@@ -322,7 +325,7 @@
         patchDb((d) => ({ ...d, courseTeachers: [...d.courseTeachers, { id, courseId: cid, teacherId: tid }] }));
         bg(() => TCData.assignCourseTeacher(cid, tid, uid, id), { reconcile: true });
         const course = db && db.courses.find((c) => c.id === cid);
-        bg(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مقرر إليك: ' : 'Course assigned to you: ') + (course ? course.name : ''), uid));
+        notify(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مقرر إليك: ' : 'Course assigned to you: ') + (course ? course.name : ''), uid));
       },
       unassignCourseTeacher: optMut(
         (id) => patchDb((d) => ({ ...d, courseTeachers: d.courseTeachers.filter((x) => x.id !== id) })),
@@ -346,7 +349,7 @@
         patchDb((d) => ({ ...d, teacherSections: [...(d.teacherSections||[]), { id, teacherId: tid, section }] }));
         bg(() => TCData.assignSection(tid, section, uid, id), { reconcile: true });
         const label = window.TCX.sectionLabel(section, lang);
-        bg(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مجموعة إليك: ' : 'Section assigned to you: ') + label, uid));
+        notify(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مجموعة إليك: ' : 'Section assigned to you: ') + label, uid));
       },
       unassignSection: optMut(
         (id) => patchDb((d) => ({ ...d, teacherSections: (d.teacherSections||[]).filter((x) => x.id !== id) })),
