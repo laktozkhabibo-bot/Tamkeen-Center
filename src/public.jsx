@@ -130,8 +130,8 @@
             <div style={{ position:'absolute', insetInlineStart:-18, bottom:-18, background:theme.paper, border:`1px solid ${theme.line}`, borderRadius:16, padding:'14px 18px', boxShadow:'0 18px 40px -22px rgba(71,60,40,.45)', display:'flex', alignItems:'center', gap:12 }}>
               <div style={{ width:42, height:42, borderRadius:12, background:theme.goldSoft, display:'flex', alignItems:'center', justifyContent:'center' }}><Icon name="award" size={22} color={theme.primaryDeep} /></div>
               <div>
-                <div style={{ fontWeight:800, fontSize:18, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{lang==='ar'?'٣ برامج معتمدة':'3 Programs'}</div>
-                <div style={{ fontSize:12, color:theme.muted }}>{lang==='ar'?'دبلومات متخصصة':'Accredited diplomas'}</div>
+                <div style={{ fontWeight:800, fontSize:18, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{lang==='ar'?'٩ برامج معتمدة':'9 Programs'}</div>
+                <div style={{ fontSize:12, color:theme.muted }}>{lang==='ar'?'دبلومات وحلقات وبرامج':'Diplomas, circles & programs'}</div>
               </div>
             </div>
           </div>
@@ -169,14 +169,14 @@
             <span key={`${gk}-${r}-${i}-v`} style={{ fontFamily: lang==='ar' ? 'Amiri, serif' : 'inherit', fontSize:16, fontWeight:600, whiteSpace:'nowrap' }}>{v}</span>
           );
           out.push(
-            <span key={`${gk}-${r}-${i}-s`} aria-hidden="true" style={{ padding:'0 28px', color:theme.tan }}>۞</span>
+            <span key={`${gk}-${r}-${i}-s`} aria-hidden="true" style={{ padding:'0 28px', color:theme.goldSoft }}>۞</span>
           );
         });
       }
       return out;
     };
     return (
-      <div style={{ background:theme.ink, color:theme.goldSoft, overflow:'hidden', padding:'13px 0', direction:'ltr' }}>
+      <div style={{ background:theme.primary, color:'#fff', overflow:'hidden', padding:'13px 0', direction:'ltr' }}>
         {/* direction:ltr on the whole bar pins the track to the left edge so it overflows
             rightward and the leftward animation always pulls fresh content into view.
             The two identical groups + exact -50% travel make the loop perfectly seamless. */}
@@ -191,10 +191,10 @@
   function ContentSection({ lang, onDiplomas }) {
     const t = L(lang);
     const stats = [
-      { n:'+450', l:t('statStudents'), icon:'users' },
-      { n:'35', l:t('statTeachers'), icon:'gradCap' },
-      { n:'3', l:t('statPrograms'), icon:'scroll' },
-      { n:'+12', l:t('statYears'), icon:'award' },
+      { n:'+357', l:t('statStudents'), icon:'users' },
+      { n:'26', l:t('statTeachers'), icon:'gradCap' },
+      { n:'9', l:t('statPrograms'), icon:'scroll' },
+      { n:'+3', l:t('statYears'), icon:'award' },
     ];
     const feats = [
       { icon:'shield', t:t('feat1T'), b:t('feat1B') },
@@ -387,7 +387,7 @@
       <div>
         <PageHead lang={lang} title={t('dipTitle')} sub={t('dipSub')} icon="scroll" />
         <div style={{ maxWidth:1100, margin:'0 auto', padding:'clamp(40px,6vw,72px) 22px' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:22 }} className="tc-feat-grid">
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fit, minmax(248px, 1fr))', gap:22 }} className="tc-feat-grid">
             {diplomas.map((d)=>(
               <Card key={d.id} pad={0} hover style={{ overflow:'hidden', display:'flex', flexDirection:'column' }}>
                 <div style={{ height:130, background:`linear-gradient(150deg, ${d.color}, ${theme.primaryDeep})`, position:'relative', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -434,9 +434,9 @@
           <div>
             <h4 style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:14, fontFamily:'Cairo, sans-serif' }}>{t('contact')}</h4>
             <div style={{ display:'grid', gap:11, fontSize:14 }}>
-              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="mapPin" size={16} color={theme.goldSoft} /> {lang==='ar'?'الرياض، المملكة العربية السعودية':'Riyadh, Saudi Arabia'}</span>
-              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="phone" size={16} color={theme.goldSoft} /> <span dir="ltr">+966 50 000 0000</span></span>
-              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="mail" size={16} color={theme.goldSoft} /> <span dir="ltr">info@tamkeen.edu</span></span>
+              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="mapPin" size={16} color={theme.goldSoft} /> {lang==='ar'?'كانو — جمهورية نيجيريا الاتحادية':'Kano, Federal Republic of Nigeria'}</span>
+              <span style={{ display:'flex', alignItems:'flex-start', gap:9 }}><Icon name="phone" size={16} color={theme.goldSoft} style={{ marginTop:3, flexShrink:0 }} /> <span dir="ltr" style={{ display:'grid', gap:3 }}><span>+234 810 478 8888</span><span>+234 707 088 8870</span></span></span>
+              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="mail" size={16} color={theme.goldSoft} /> <span dir="ltr">tamkeen.nigeria@gmail.com</span></span>
             </div>
           </div>
         </div>
