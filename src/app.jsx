@@ -214,6 +214,7 @@
           enrollments: d.enrollments.filter((e) => e.studentId !== accessKey),
           courseTeachers: d.courseTeachers.filter((ct) => ct.teacherId !== accessKey),
           teacherStudents: d.teacherStudents.filter((ts) => ts.teacherId !== accessKey && ts.studentId !== accessKey),
+          teacherSections: (d.teacherSections||[]).filter((x) => x.teacherId !== accessKey),
           grades: d.grades.filter((g) => g.studentId !== accessKey),
           assignments: d.assignments.filter((a) => a.studentId !== accessKey),
           courseGrades: d.courseGrades.filter((g) => g.studentId !== accessKey),
@@ -236,6 +237,10 @@
           if (f.email !== undefined) next.email = f.email;
           if (f.specializations !== undefined) next.specializations = f.specializations || [];
           if (f.img !== undefined) next.img = f.img;
+          if (f.diploma !== undefined) next.diploma = f.diploma || null;
+          if (f.attendanceGroup !== undefined) next.attendanceGroup = f.attendanceGroup || null;
+          if (f.section !== undefined) next.section = f.section || null;
+          if (f.academicYear !== undefined) next.academicYear = f.academicYear || null;
           return next;
         }) }));
         if (accessKey === uid) setUser((prev) => prev ? { ...prev, ...(f.name!=null?{name:f.name}:{}), ...(f.img!==undefined?{img:f.img}:{}) } : prev);
@@ -294,11 +299,11 @@
       },
       addCourse: (c) => {
         const id = newId();
-        patchDb((d) => ({ ...d, courses: [...d.courses, { id, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, fileData: c.fileData || null, fileName: c.fileName || null, createdBy: uid, createdAt: new Date().toISOString() }] }));
+        patchDb((d) => ({ ...d, courses: [...d.courses, { id, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, fileData: c.fileData || null, fileName: c.fileName || null, hasFile: !!c.fileName, createdBy: uid, createdAt: new Date().toISOString() }] }));
         bg(() => TCData.addCourse(c, uid, id), { reconcile: true });
       },
       editCourse: optMut(
-        (id, c) => patchDb((d) => ({ ...d, courses: d.courses.map((x) => x.id === id ? { ...x, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, fileData: c.fileData || null, fileName: c.fileName || null } : x) })),
+        (id, c) => patchDb((d) => ({ ...d, courses: d.courses.map((x) => x.id === id ? { ...x, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, ...(c.keepFile ? {} : { fileData: c.fileData || null, fileName: c.fileName || null, hasFile: !!c.fileName }) } : x) })),
         (id, c) => TCData.editCourse(id, c)),
       deleteCourse: async (id) => {
         const ok = await window.UI.confirm({ title: lang==='ar'?'حذف المقرر':'Delete course', message: lang==='ar'?'سيُحذف المقرر وكل تسجيلاته ودرجاته. هل تريد المتابعة؟':'The course and all its enrollments and grades will be deleted.', confirmText: lang==='ar'?'حذف':'Delete', icon:'trash' });
@@ -316,6 +321,8 @@
         const id = newId();
         patchDb((d) => ({ ...d, courseTeachers: [...d.courseTeachers, { id, courseId: cid, teacherId: tid }] }));
         bg(() => TCData.assignCourseTeacher(cid, tid, uid, id), { reconcile: true });
+        const course = db && db.courses.find((c) => c.id === cid);
+        bg(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مقرر إليك: ' : 'Course assigned to you: ') + (course ? course.name : ''), uid));
       },
       unassignCourseTeacher: optMut(
         (id) => patchDb((d) => ({ ...d, courseTeachers: d.courseTeachers.filter((x) => x.id !== id) })),
@@ -333,6 +340,17 @@
         patchDb((d) => ({ ...d, teacherStudents: [...d.teacherStudents, { id, teacherId: tid, studentId: sid }] }));
         bg(() => TCData.assignTeacherStudent(tid, sid, uid, id), { reconcile: true });
       },
+      // إسناد مجموعة/فصل كامل للمعلم + إشعار في صندوق وارده
+      assignSection: (tid, section) => {
+        const id = newId();
+        patchDb((d) => ({ ...d, teacherSections: [...(d.teacherSections||[]), { id, teacherId: tid, section }] }));
+        bg(() => TCData.assignSection(tid, section, uid, id), { reconcile: true });
+        const label = window.TCX.sectionLabel(section, lang);
+        bg(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مجموعة إليك: ' : 'Section assigned to you: ') + label, uid));
+      },
+      unassignSection: optMut(
+        (id) => patchDb((d) => ({ ...d, teacherSections: (d.teacherSections||[]).filter((x) => x.id !== id) })),
+        (id) => TCData.unassignSection(id)),
       unassignTeacherStudent: optMut(
         (id) => patchDb((d) => ({ ...d, teacherStudents: d.teacherStudents.filter((x) => x.id !== id) })),
         (id) => TCData.unassignTeacherStudent(id)),
