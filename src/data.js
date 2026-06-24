@@ -15,16 +15,17 @@
     managementSection: p.management_section, specializations: p.specializations || [],
     academicYear: p.academic_year, phone: p.phone, email: p.email, img: p.img_url, password: '',
     status: p.status || 'regular', diploma: p.diploma || null,
-    attendanceGroup: p.attendance_group || null, createdAt: p.created_at,
+    attendanceGroup: p.attendance_group || null, section: p.section || null, createdAt: p.created_at,
   });
   const mapCourse = (c) => ({
     id: c.id, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code,
-    link: c.link, notes: c.notes, fileData: c.file_data, fileName: c.file_name,
-    createdBy: c.created_by, createdAt: c.created_at,
+    link: c.link, notes: c.notes, fileData: c.file_data || null, fileName: c.file_name,
+    hasFile: !!c.file_name, createdBy: c.created_by, createdAt: c.created_at,
   });
   const mapCourseTeacher = (r) => ({ id: r.id, courseId: r.course_id, teacherId: r.teacher_id });
   const mapEnrollment = (r) => ({ id: r.id, courseId: r.course_id, studentId: r.student_id });
   const mapTeacherStudent = (r) => ({ id: r.id, teacherId: r.teacher_id, studentId: r.student_id });
+  const mapTeacherSection = (r) => ({ id: r.id, teacherId: r.teacher_id, section: r.section });
   const mapCourseGrade = (g) => ({
     id: g.id, studentId: g.student_id, courseId: g.course_id,
     participation: g.participation, midterm: g.midterm, final: g.final,
@@ -81,7 +82,7 @@
   // -------- تحميل كل البيانات المرئية (حسب RLS) --------
   async function loadDB() {
     const [profiles, dels, grades, assigns, beh, scheds, anns, shared, cloud,
-           settings, courses, cTeachers, enrolls, tStudents, cGrades] = await Promise.all([
+           settings, courses, cTeachers, enrolls, tStudents, cGrades, tSections] = await Promise.all([
       sb.from('profiles').select('*').order('created_at'),
       sb.from('delegations').select('*'),
       sb.from('grades').select('*').order('created_at'),
@@ -93,11 +94,14 @@
       sb.from('cloud_items').select('*').order('created_at'),
       // ---- المنهج والمقررات (قد لا تكون موجودة قبل تشغيل setup-v2.sql) ----
       sb.from('app_settings').select('*'),
-      sb.from('courses').select('*').order('code'),
+      // ملاحظة: لا نحمّل file_data (محتوى الملف base64) هنا لأنه قد يكون ضخمًا
+      // ويُبطئ كل إعادة تحميل؛ يُجلَب عند الطلب فقط عبر getCourseFile.
+      sb.from('courses').select('id,diploma,semester,name,code,link,notes,file_name,created_by,created_at').order('code'),
       sb.from('course_teachers').select('*'),
       sb.from('enrollments').select('*'),
       sb.from('teacher_students').select('*'),
       sb.from('course_grades').select('*'),
+      sb.from('teacher_sections').select('*'),
     ]);
     const behaviorScores = {};
     (beh.data || []).forEach((b) => { behaviorScores[b.student_id] = b.score; });
@@ -119,6 +123,7 @@
       enrollments: (enrolls.data || []).map(mapEnrollment),
       teacherStudents: (tStudents.data || []).map(mapTeacherStudent),
       courseGrades: (cGrades.data || []).map(mapCourseGrade),
+      teacherSections: (tSections.data || []).map(mapTeacherSection),
     };
   }
 
@@ -148,6 +153,13 @@
     if (!storagePath) return null;
     const { data } = await sb.storage.from(BUCKET).createSignedUrl(storagePath, 120);
     return data ? data.signedUrl : null;
+  }
+
+  // جلب محتوى ملف المقرر (base64) عند الطلب فقط — لا يُحمّل مع بقية البيانات
+  async function getCourseFile(id) {
+    const { data, error } = await sb.from('courses').select('file_data,file_name').eq('id', id).single();
+    if (error) throw error;
+    return data ? { fileData: data.file_data, fileName: data.file_name } : null;
   }
 
   // -------- عمليات الكتابة (مرآة لـ actions القديمة) --------
@@ -206,6 +218,7 @@
       p_year: f.academicYear || null, p_phone: f.phone || null, p_email: f.email || null,
       p_img: f.img || null, p_diploma: f.diploma || null,
       p_attendance: f.attendanceGroup || null, p_section: f.managementSection || null,
+      p_class: f.section || null,
     }),
     deleteUser: (accessKey) => sb.rpc('admin_delete_user', { p_key: accessKey }),
     // تعديل بيانات مستخدم (الاسم/الهاتف/البريد/التخصصات/الصورة) — الإدارة فقط عبر RLS
@@ -216,6 +229,10 @@
       if (f.email !== undefined) patch.email = f.email || null;
       if (f.specializations !== undefined) patch.specializations = (f.specializations && f.specializations.length) ? f.specializations : null;
       if (f.img !== undefined) patch.img_url = f.img || null;
+      if (f.diploma !== undefined) patch.diploma = f.diploma || null;
+      if (f.attendanceGroup !== undefined) patch.attendance_group = f.attendanceGroup || null;
+      if (f.section !== undefined) patch.section = f.section || null;
+      if (f.academicYear !== undefined) patch.academic_year = f.academicYear || null;
       return sb.from('profiles').update(patch).eq('access_key', accessKey);
     },
     setUserImage: (accessKey, img) => sb.from('profiles').update({ img_url: img }).eq('access_key', accessKey),
@@ -224,10 +241,13 @@
       ...(id ? { id } : {}), diploma: c.diploma, semester: c.semester, name: c.name, code: c.code,
       link: c.link || null, notes: c.notes || null,
       file_data: c.fileData || null, file_name: c.fileName || null, created_by: by }),
-    editCourse: (id, c) => sb.from('courses').update({
-      diploma: c.diploma, semester: c.semester, name: c.name, code: c.code,
-      link: c.link || null, notes: c.notes || null,
-      file_data: c.fileData || null, file_name: c.fileName || null }).eq('id', id),
+    editCourse: (id, c) => {
+      const patch = { diploma: c.diploma, semester: c.semester, name: c.name, code: c.code,
+        link: c.link || null, notes: c.notes || null };
+      // عند التعديل دون تغيير الملف (keepFile) لا نمسّ محتوى الملف المخزّن
+      if (!c.keepFile) { patch.file_data = c.fileData || null; patch.file_name = c.fileName || null; }
+      return sb.from('courses').update(patch).eq('id', id);
+    },
     deleteCourse: (id) => sb.from('courses').delete().eq('id', id),
 
     assignCourseTeacher: (courseId, teacherId, by, id) => sb.from('course_teachers').insert({
@@ -241,6 +261,15 @@
     assignTeacherStudent: (teacherId, studentId, by, id) => sb.from('teacher_students').insert({
       ...(id ? { id } : {}), teacher_id: teacherId, student_id: studentId, created_by: by || null }),
     unassignTeacherStudent: (id) => sb.from('teacher_students').delete().eq('id', id),
+
+    // إسناد مجموعة/فصل كامل للمعلم (توكيل بالمجموعة لا بالأفراد)
+    assignSection: (teacherId, section, by, id) => sb.from('teacher_sections').insert({
+      ...(id ? { id } : {}), teacher_id: teacherId, section, created_by: by || null }),
+    unassignSection: (id) => sb.from('teacher_sections').delete().eq('id', id),
+    // إشعار في صندوق وارد المعلم (عند الإسناد)
+    notifyUser: (toId, itemName, by, id) => sb.from('shared_items').insert({
+      ...(id ? { id } : {}), from_user_id: by || null, to_user_id: toId,
+      item_name: itemName, item_type: 'notice', is_read: false }),
 
     setStudentStatus: (studentId, status) => sb.from('profiles').update({ status }).eq('access_key', studentId),
 
@@ -260,7 +289,7 @@
 
   window.TCData = {
     signIn, signOut, getSessionUser, onAuthChange, loadDB,
-    uploadCloudFile, removeCloudItem, clearCloud, getDownloadUrl,
+    uploadCloudFile, removeCloudItem, clearCloud, getDownloadUrl, getCourseFile,
     ...ops,
   };
 })();
