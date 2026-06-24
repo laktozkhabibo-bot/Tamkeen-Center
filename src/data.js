@@ -156,14 +156,14 @@
     deleteSharedItem: (id) => sb.from('shared_items').delete().eq('id', id),
     deleteAssignment: (id) => sb.from('assignments').delete().eq('id', id),
 
-    addGrade: (studentId, g, by) => sb.from('grades').insert({
-      student_id: studentId, subject: g.subject, score: g.score, max_score: 100, notes: g.notes || '', created_by: by,
+    addGrade: (studentId, g, by, id) => sb.from('grades').insert({
+      ...(id ? { id } : {}), student_id: studentId, subject: g.subject, score: g.score, max_score: 100, notes: g.notes || '', created_by: by,
     }),
     editGrade: (id, g) => sb.from('grades').update({ subject: g.subject, score: g.score, notes: g.notes || '' }).eq('id', id),
     deleteGrade: (id) => sb.from('grades').delete().eq('id', id),
 
-    assignHomework: (studentId, hw, by) => sb.from('assignments').insert({
-      student_id: studentId, title: hw.title, description: hw.description || '', due_date: hw.dueDate || '', assigned_by: by,
+    assignHomework: (studentId, hw, by, id) => sb.from('assignments').insert({
+      ...(id ? { id } : {}), student_id: studentId, title: hw.title, description: hw.description || '', due_date: hw.dueDate || '', assigned_by: by,
     }),
     updateBehavior: (studentId, score, by) => sb.from('behavior_scores').upsert({
       student_id: studentId, score: Math.max(0, Math.min(100, score)), updated_by: by || null, updated_at: new Date().toISOString(),
@@ -172,16 +172,16 @@
     addDelegation: (row) => sb.from('delegations').insert(row),
     removeDelegation: (id) => sb.from('delegations').delete().eq('id', id),
 
-    addSchedule: (s, by) => {
+    addSchedule: (s, by, id) => {
       const cols = s.columns.filter((c) => c.trim());
       return sb.from('schedules').insert({
-        title: s.name, type: s.type, columns: cols, rows: s.rows.map((r) => r.slice(0, cols.length)), created_by: by,
+        ...(id ? { id } : {}), title: s.name, type: s.type, columns: cols, rows: s.rows.map((r) => r.slice(0, cols.length)), created_by: by,
       });
     },
     deleteSchedule: (id) => sb.from('schedules').delete().eq('id', id),
 
-    createAnnouncement: (a, by) => sb.from('announcements').insert({
-      title: a.title, content: a.content, template: a.template,
+    createAnnouncement: (a, by, id) => sb.from('announcements').insert({
+      ...(id ? { id } : {}), title: a.title, content: a.content, template: a.template,
       audience: a.audience || ['students', 'teachers', 'admins'], created_by: by,
     }),
     deleteAnnouncement: (id) => sb.from('announcements').delete().eq('id', id),
@@ -220,8 +220,8 @@
     },
     setUserImage: (accessKey, img) => sb.from('profiles').update({ img_url: img }).eq('access_key', accessKey),
 
-    addCourse: (c, by) => sb.from('courses').insert({
-      diploma: c.diploma, semester: c.semester, name: c.name, code: c.code,
+    addCourse: (c, by, id) => sb.from('courses').insert({
+      ...(id ? { id } : {}), diploma: c.diploma, semester: c.semester, name: c.name, code: c.code,
       link: c.link || null, notes: c.notes || null,
       file_data: c.fileData || null, file_name: c.fileName || null, created_by: by }),
     editCourse: (id, c) => sb.from('courses').update({
@@ -230,23 +230,23 @@
       file_data: c.fileData || null, file_name: c.fileName || null }).eq('id', id),
     deleteCourse: (id) => sb.from('courses').delete().eq('id', id),
 
-    assignCourseTeacher: (courseId, teacherId, by) => sb.from('course_teachers').insert({
-      course_id: courseId, teacher_id: teacherId, created_by: by || null }),
+    assignCourseTeacher: (courseId, teacherId, by, id) => sb.from('course_teachers').insert({
+      ...(id ? { id } : {}), course_id: courseId, teacher_id: teacherId, created_by: by || null }),
     unassignCourseTeacher: (id) => sb.from('course_teachers').delete().eq('id', id),
 
-    enrollStudent: (courseId, studentId, by) => sb.from('enrollments').insert({
-      course_id: courseId, student_id: studentId, created_by: by || null }),
+    enrollStudent: (courseId, studentId, by, id) => sb.from('enrollments').insert({
+      ...(id ? { id } : {}), course_id: courseId, student_id: studentId, created_by: by || null }),
     unenroll: (id) => sb.from('enrollments').delete().eq('id', id),
 
-    assignTeacherStudent: (teacherId, studentId, by) => sb.from('teacher_students').insert({
-      teacher_id: teacherId, student_id: studentId, created_by: by || null }),
+    assignTeacherStudent: (teacherId, studentId, by, id) => sb.from('teacher_students').insert({
+      ...(id ? { id } : {}), teacher_id: teacherId, student_id: studentId, created_by: by || null }),
     unassignTeacherStudent: (id) => sb.from('teacher_students').delete().eq('id', id),
 
     setStudentStatus: (studentId, status) => sb.from('profiles').update({ status }).eq('access_key', studentId),
 
     // المعلم يحفظ/يؤكد درجة (upsert على student_id+course_id)
-    saveCourseGrade: (studentId, courseId, g, by, status) => sb.from('course_grades').upsert({
-      student_id: studentId, course_id: courseId,
+    saveCourseGrade: (studentId, courseId, g, by, status, id) => sb.from('course_grades').upsert({
+      ...(id ? { id } : {}), student_id: studentId, course_id: courseId,
       participation: g.participation || 0, midterm: g.midterm || 0, final: g.final || 0,
       status: status || 'draft', created_by: by || null, updated_at: new Date().toISOString(),
     }, { onConflict: 'student_id,course_id' }),
