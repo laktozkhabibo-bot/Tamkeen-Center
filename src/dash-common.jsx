@@ -220,13 +220,13 @@
                 <Card key={item.id} pad={0} style={{ overflow:'hidden', border:`1.5px solid ${item.isRead?theme.lineSoft:theme.gold}` }}>
                   <div onClick={()=>setOpen(isOpen?null:item.id)} style={{ display:'flex', alignItems:'center', gap:13, padding:16, cursor:'pointer' }}>
                     <div style={{ width:42, height:42, borderRadius:12, background:item.isRead?theme.creamDeep:theme.goldSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>
-                      <Icon name={item.itemType==='schedule'?'calendar':'fileText'} size={19} color={theme.primary} />
+                      <Icon name={item.itemType==='schedule'?'calendar':item.itemType==='notice'?'bell':'fileText'} size={19} color={theme.primary} />
                     </div>
                     <div style={{ flex:1, minWidth:0 }}>
                       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:3, flexWrap:'wrap' }}>
                         {!item.isRead && <span style={{ width:8, height:8, borderRadius:'50%', background:theme.gold, flexShrink:0 }} />}
                         <span style={{ fontSize:14.5, fontWeight:700, color:theme.ink }}>{item.itemName}</span>
-                        <Badge tone={item.itemType==='schedule'?'gold':'neutral'}>{item.itemType==='schedule'?t('schedule'):t('file')}</Badge>
+                        <Badge tone={item.itemType==='schedule'?'gold':item.itemType==='notice'?'ok':'neutral'}>{item.itemType==='schedule'?t('schedule'):item.itemType==='notice'?(lang==='ar'?'إشعار':'Notice'):t('file')}</Badge>
                       </div>
                       <div style={{ display:'flex', alignItems:'center', gap:8, flexWrap:'wrap', fontSize:12.5, color:theme.muted }}>
                         <span>{t('from')}: {s.name}</span>
