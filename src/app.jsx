@@ -11,6 +11,9 @@
   const TCData = window.TCData;
 
   const LANG_KEY = 'tamkeen_lang_v1';
+  // دليل المستند الأصلي (يُلتقط مرة واحدة عند التحميل) — نبني عليه المسارات
+  // حتى تبقى روابط الأصول (الصور/السكربت) صحيحة في أي بيئة.
+  const ROUTE_BASE = window.location.pathname.replace(/[^/]*$/, '') || '/';
 
   function Splash({ text }) {
     return (
@@ -28,8 +31,24 @@
     const [user, setUser] = useState(null);
     const [booting, setBooting] = useState(true);
     const [busy, setBusy] = useState(false);
-    const [view, setView] = useState('public'); // public | auth | dashboard
-    const [publicPage, setPublicPage] = useState('home');
+    // ---- التوجيه عبر المسار: لكل قسم رابط مستقل
+    //  /  · /about · /leadership · /diplomas · /login
+    //  /mng  · /teacher · /student  (+ تبويب داخلي: /mng/teachers إلخ)
+    const parsePath = (pathname, search) => {
+      let rel = String(pathname || '/');
+      rel = rel.startsWith(ROUTE_BASE) ? rel.slice(ROUTE_BASE.length) : rel.replace(/^\/+/, '');
+      const seg = rel.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+      const a = (seg[0] || '').toLowerCase();
+      const tab = new URLSearchParams(search || '').get('tab');
+      if (a === 'login') return { view: 'auth', publicPage: 'home', dashTab: null, dashBase: null };
+      if (a === 'mng' || a === 'teacher' || a === 'student') return { view: 'dashboard', publicPage: 'home', dashTab: tab || null, dashBase: a };
+      const pages = ['about', 'leadership', 'diplomas'];
+      return { view: 'public', publicPage: pages.includes(a) ? a : 'home', dashTab: null, dashBase: null };
+    };
+    const r0 = parsePath(window.location.pathname, window.location.search);
+    const [view, setView] = useState(r0.view); // public | auth | dashboard
+    const [publicPage, setPublicPage] = useState(r0.publicPage);
+    const [dashTab, setDashTab] = useState(r0.dashTab);
     const [authStart, setAuthStart] = useState('initial');
 
     const t = L(lang);
@@ -45,7 +64,39 @@
     // عند الانتقال بين الصفحات/الأقسام: ابدأ من أعلى الصفحة الجديدة دائمًا
     useEffect(() => {
       window.scrollTo(0, 0);
-    }, [view, publicPage]);
+    }, [view, publicPage, dashTab]);
+
+    // مزامنة عنوان المتصفح مع القسم الحالي (لكل قسم رابط مستقل)
+    useEffect(() => {
+      if (booting) return; // لا نغيّر الرابط قبل اكتمال استعادة الجلسة (تفادي ارتداد العنوان)
+      let sub = '';
+      if (view === 'auth') sub = 'login';
+      else if (view === 'dashboard' && user) {
+        const b = user.role === 'student' ? 'student' : user.role === 'teacher' ? 'teacher' : 'mng';
+        sub = b + (dashTab ? ('?tab=' + encodeURIComponent(dashTab)) : '');
+      } else {
+        sub = publicPage === 'home' ? '' : publicPage;
+      }
+      const path = ROUTE_BASE + sub;
+      const cur = window.location.pathname + window.location.search;
+      if (cur !== path) window.history.pushState({}, '', path);
+    }, [view, publicPage, dashTab, user, booting]);
+
+    // أزرار رجوع/تقدّم في المتصفح
+    useEffect(() => {
+      const onPop = () => {
+        const r = parsePath(window.location.pathname, window.location.search);
+        if (r.dashBase) {
+          if (user) { setView('dashboard'); setDashTab(r.dashTab); }
+          else { setView('public'); setPublicPage('home'); }
+          return;
+        }
+        if (r.view === 'auth') { setView('auth'); return; }
+        setView('public'); setPublicPage(r.publicPage); setDashTab(null);
+      };
+      window.addEventListener('popstate', onPop);
+      return () => window.removeEventListener('popstate', onPop);
+    }, [user]);
 
     // استعادة الجلسة عند الإقلاع
     useEffect(() => {
@@ -149,7 +200,7 @@
     };
     const handleLogout = async () => {
       await TCData.signOut();
-      setUser(null); setDb(null); setView('public'); setPublicPage('home');
+      setUser(null); setDb(null); setView('public'); setPublicPage('home'); setDashTab(null);
     };
     const goHome = () => { setView('public'); setPublicPage('home'); };
     const handleRegister = () => { /* تسجيل الطلاب الذاتي: مرحلة لاحقة */ };
@@ -384,7 +435,7 @@
 
     const renderDashboard = () => {
       if (!user || !db) return <Splash text={lang === 'ar' ? 'جارٍ التحميل…' : 'Loading…'} />;
-      const common = { user, lang, setLang, db, actions, onLogout: handleLogout, onHome: goHome };
+      const common = { user, lang, setLang, db, actions, onLogout: handleLogout, onHome: goHome, routeTab: dashTab, onTab: setDashTab };
       if (user.role === 'student') return <StudentDashboard {...common} />;
       if (user.role === 'teacher') return <TeacherDashboard {...common} />;
       return <ManagementDashboard {...common} />;
