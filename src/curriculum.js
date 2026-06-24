@@ -6,10 +6,10 @@
   // الدبلومتان
   const DIPLOMAS = [
     { id: 'sunnah', prefix: 'سن', accent: '#8C6F47',
-      name: { ar: 'دبلوم السنة النبوية', en: 'Prophetic Sunnah Diploma' },
+      name: { ar: 'دبلوم السنة النبوية والدراسات الإسلامية', en: 'Prophetic Sunnah & Islamic Studies' },
       short: { ar: 'السنة النبوية', en: 'Prophetic Sunnah' } },
     { id: 'arabic', prefix: 'عر', accent: '#B68A3E',
-      name: { ar: 'دبلوم اللغة العربية', en: 'Arabic Language Diploma' },
+      name: { ar: 'دبلوم اللغة العربية والدراسات الإسلامية', en: 'Arabic Language & Islamic Studies' },
       short: { ar: 'اللغة العربية', en: 'Arabic Language' } },
   ];
 
