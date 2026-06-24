@@ -61,7 +61,7 @@
     heroTitle1:{ar:'العلم النافع، والتطبيق الراسخ',en:'Beneficial Knowledge, Lasting Practice'},
     heroBody1:{ar:'منظومة تعليمية متكاملة تجمع بين أصالة العلوم الشرعية وجودة الإدارة الحديثة، لإعداد جيلٍ متمكّن.',en:'An integrated educational system uniting authentic scholarship with modern administration to prepare a capable generation.'},
     heroTitle2:{ar:'دبلومات متخصّصة بإشراف نخبة',en:'Specialized Diplomas, Elite Supervision'},
-    heroBody2:{ar:'برامج معتمدة في السنة النبوية واللغة العربية والتمريض، بمناهج عملية وكادر مؤهّل.',en:'Accredited programs in Prophetic Sunnah, Arabic, and Nursing — practical curricula and qualified staff.'},
+    heroBody2:{ar:'برامج معتمدة في السنة النبوية واللغة العربية والدراسات الإسلامية وحلقات تمكين، بمناهج عملية وكادر مؤهّل.',en:'Accredited programs in the Prophetic Sunnah, Arabic and Islamic studies, and Tamkeen circles — practical curricula and qualified staff.'},
     heroTitle3:{ar:'بوابتك الرقمية للتعلّم',en:'Your Digital Gateway to Learning'},
     heroBody3:{ar:'سجّل، تابع جداولك وواجباتك ودرجاتك، وتواصل مع معلّميك — كل ذلك من مكان واحد.',en:'Register, follow your schedule, assignments and grades, and reach your teachers — all in one place.'},
     ctaRegister:{ar:'سجّل الآن',en:'Register Now'},
@@ -423,7 +423,7 @@
       {accessKey:'T101', password:'1234', name:'أ. منى السالم', role:'teacher', specializations:['اللغة العربية','النحو'], phone:'0500000011', email:'mona@tamkeen.edu', img:null},
       {accessKey:'S100', password:'1234', name:'محمد العمري', role:'student', academicYear:'دبلوم السنة النبوية — السنة الأولى', phone:'0500000020', email:'m.alamri@mail.com', img:null},
       {accessKey:'S101', password:'1234', name:'سارة القحطاني', role:'student', academicYear:'دبلوم اللغة العربية — السنة الأولى', phone:'0500000021', email:'sara.q@mail.com', img:null},
-      {accessKey:'S102', password:'1234', name:'عبدالله الشهري', role:'student', academicYear:'دبلوم التمريض — السنة الثانية', phone:'0500000022', email:'a.alshehri@mail.com', img:null},
+      {accessKey:'S102', password:'1234', name:'عبدالله الشهري', role:'student', academicYear:'دبلوم السنة النبوية — السنة الثانية', phone:'0500000022', email:'a.alshehri@mail.com', img:null},
     ],
     delegations: [
       {id:'d1', teacherId:'T100', type:'subject', title:'تدريس مادة الفقه', description:'متابعة طلاب السنة الأولى في مادة الفقه وأصوله.', subjectName:'الفقه', className:'دبلوم السنة النبوية', studentIds:['S100','S101'], status:'active', assignedBy:'K100', assignedAt:daysAgo(20)},
