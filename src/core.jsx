@@ -93,7 +93,7 @@
     missionT:{ar:'رسالتنا',en:'Our Mission'},
     missionB:{ar:'تقديم برامج علمية إسلامية منهجية، تقوم على التأصيل العلمي والوسطية، وتسهم في إعداد كوادر علمية مؤهّلة، وخدمة المجتمع النيجيري عبر نشر العلم الصحيح وترسيخ القيم.',en:'To deliver methodical Islamic academic programs grounded in scholarly rooting and moderation, contributing to preparing qualified scholars and serving Nigerian society by spreading sound knowledge and instilling values.'},
     valuesT:{ar:'قيمنا',en:'Our Values'},
-    val1:{ar:'الإتقان',en:'Mastery'}, val2:{ar:'الأمانة',en:'Integrity'}, val3:{ar:'الانضباط',en:'Discipline'}, val4:{ar:'الإحسان',en:'Excellence'},
+    val1:{ar:'الإتقان',en:'Mastery'}, val2:{ar:'الأصالة',en:'Authenticity'}, val3:{ar:'المعاصرة',en:'Modernity'}, val4:{ar:'الانضباط',en:'Discipline'},
     // management/leadership page
     mgmtTitle:{ar:'إدارة المركز',en:'Center Leadership'},
     mgmtSub:{ar:'فريقٌ قياديٌّ متميّز يقود رحلة التطوير والنمو',en:'A distinguished leadership team driving development and growth'},
