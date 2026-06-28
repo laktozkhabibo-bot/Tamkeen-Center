@@ -10,7 +10,7 @@
   const { DashShell, InboxView, downloadScheduleCSV, AnnouncementsView, CloudView, ScheduleTable } = window.Dash;
   const { SemesterBanner, CourseCard, StatusBadge, GradeBreakdown } = window.CoursesUI;
   const X = window.TCX;
-  const { useState } = React;
+  const { useState, useEffect } = React;
   const tr = (o, lang) => X.tr(o, lang);
 
   // صف إدخال درجة لطالب واحد في مقرر
@@ -66,9 +66,11 @@
     );
   }
 
-  function TeacherDashboard({ user, lang, setLang, db, actions, onLogout, onHome }) {
+  function TeacherDashboard({ user, lang, setLang, db, actions, onLogout, onHome, routeTab, onTab }) {
     const t = L(lang);
-    const [active, setActive] = useState('inbox');
+    const [active, setActiveState] = useState(routeTab || 'inbox');
+    const setActive = (tb) => { setActiveState(tb); onTab && onTab(tb); };
+    useEffect(() => { if (routeTab && routeTab !== active) setActiveState(routeTab); }, [routeTab]);
     const uid = user.accessKey;
 
     const inbox = db.sharedItems.filter(i=>i.toUserId===uid);
@@ -78,9 +80,10 @@
     // المقررات الموكلة لهذا المعلم
     const myCourseIds = (db.courseTeachers||[]).filter(ct=>ct.teacherId===uid).map(ct=>ct.courseId);
     const myCourses = myCourseIds.map(id=>(db.courses||[]).find(c=>c.id===id)).filter(Boolean);
-    // الطلاب الموكلون
-    const myStudentIds = new Set((db.teacherStudents||[]).filter(ts=>ts.teacherId===uid).map(ts=>ts.studentId));
-    const myStudents = Array.from(myStudentIds).map(id=>db.users.find(u=>u.accessKey===id)).filter(Boolean);
+    // الطلاب الموكلون = طلاب المجموعات/الفصول المُسندة لهذا المعلم (تلقائيًا، يشمل الجدد)
+    const mySectionKeys = new Set((db.teacherSections||[]).filter(ts=>ts.teacherId===uid).map(ts=>ts.section));
+    const myStudents = db.users.filter(u=>u.role==='student' && u.section && mySectionKeys.has(u.section));
+    const myStudentIds = new Set(myStudents.map(u=>u.accessKey));
 
     const [selCourse, setSelCourse] = useState(null);
     const [q, setQ] = useState('');
@@ -121,7 +124,7 @@
       <DashShell user={user} lang={lang} setLang={setLang} panelLabel={t('teacherPanel')} accent={theme.tan}
         tabs={tabs} active={active} setActive={setActive} onLogout={onLogout} onHome={onHome}>
 
-        {active==='inbox' && <InboxView items={inbox} users={db.users} lang={lang} onMarkRead={actions.markRead} onDownloadSchedule={downloadScheduleCSV} />}
+        {active==='inbox' && <InboxView items={inbox} users={db.users} lang={lang} onMarkRead={actions.markRead} onDownloadSchedule={downloadScheduleCSV} onDelete={actions.deleteSharedItem} />}
         {active==='announcements' && <AnnouncementsView announcements={db.announcements} role="teacher" lang={lang} />}
 
         {/* المقررات الموكلة */}

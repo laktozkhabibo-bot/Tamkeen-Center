@@ -228,14 +228,15 @@
         if (popRef.current && popRef.current.contains(e.target)) return;
         setOpen(false);
       };
-      const onScrollOrResize = () => setOpen(false);
+      const onScroll = (e) => { if (popRef.current && popRef.current.contains(e.target)) return; place(); };
+      const onResize = () => setOpen(false);
       document.addEventListener('mousedown', onDoc);
-      window.addEventListener('scroll', onScrollOrResize, true);
-      window.addEventListener('resize', onScrollOrResize);
+      window.addEventListener('scroll', onScroll, true);
+      window.addEventListener('resize', onResize);
       return () => {
         document.removeEventListener('mousedown', onDoc);
-        window.removeEventListener('scroll', onScrollOrResize, true);
-        window.removeEventListener('resize', onScrollOrResize);
+        window.removeEventListener('scroll', onScroll, true);
+        window.removeEventListener('resize', onResize);
       };
     }, [open]);
 

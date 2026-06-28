@@ -8,7 +8,7 @@
   const { SchedulesTab, AnnouncementsTab, LookupTab } = window.MgmtTools;
   const { CurriculumTab, ApprovalTab, TeacherAssignPanel } = window.MgmtCurriculum;
   const X = window.TCX;
-  const { useState } = React;
+  const { useState, useEffect } = React;
   const tr = (o, lang) => X.tr(o, lang);
 
   function PeopleList({ lang, list, accent, onAdd, onDelete, onEdit, role, db, onSelect, selId, t }) {
@@ -57,10 +57,63 @@
     );
   }
 
-  function ManagementDashboard({ user, lang, setLang, db, actions, onLogout, onHome }) {
+  // حقول تصنيف الطالب (دبلومة ← سنة ← توقيت/مجموعة) — تبني المجموعة (section)
+  function StudentSectionFields({ form, setForm, lang, t }) {
+    const trx = (o)=>X.tr(o, lang);
+    const set = (patch)=>setForm(f=>({ ...f, ...patch }));
+    const isArabic = form.diploma==='arabic';
+    const yearNum = Number(form.studyYear)||1;
+    const segBtn = (active)=>({ flex:1, padding:'10px 8px', borderRadius:10, border:`1.5px solid ${active?theme.primary:theme.line}`, background:active?theme.creamDeep:theme.paper, cursor:'pointer', fontFamily:'Cairo, sans-serif', fontWeight:700, fontSize:12.5, color:active?theme.ink:theme.brown });
+    const previewKey = X.buildSectionKey({ diploma:form.diploma, year:form.studyYear, timing:form.attendanceGroup, group:form.studyGroup });
+    return (
+      <div style={{ display:'grid', gap:12, padding:14, borderRadius:14, background:theme.paperAlt, border:`1px solid ${theme.lineSoft}` }}>
+        <Field label={t('diploma')}>
+          <div style={{ display:'flex', gap:8 }}>
+            {X.DIPLOMAS.map(d=>(
+              <button key={d.id} type="button" onClick={()=>set({ diploma:d.id, studyGroup:1, attendanceGroup: form.attendanceGroup||'weekday' })} style={segBtn(form.diploma===d.id)}>{trx(d.name)}</button>
+            ))}
+          </div>
+        </Field>
+        <Field label={lang==='ar'?'السنة الدراسية':'Study year'}>
+          <div style={{ display:'flex', gap:8 }}>
+            {X.YEARS.map(y=>(
+              <button key={y.id} type="button" onClick={()=>set({ studyYear:y.id, studyGroup:(isArabic && y.id===2)?1:form.studyGroup })} style={segBtn(yearNum===y.id)}>{trx(y.name)}</button>
+            ))}
+          </div>
+        </Field>
+        {isArabic && (
+          <Field label={lang==='ar'?'التوقيت':'Timing'}>
+            <div style={{ display:'flex', gap:8 }}>
+              {X.TIMINGS.map(tm=>(
+                <button key={tm.id} type="button" onClick={()=>set({ attendanceGroup:tm.id })} style={segBtn(form.attendanceGroup===tm.id)}>{trx(tm.name)}</button>
+              ))}
+            </div>
+          </Field>
+        )}
+        {isArabic && yearNum===1 && (
+          <Field label={lang==='ar'?'المجموعة':'Group'}>
+            <div style={{ display:'flex', gap:8 }}>
+              {[1,2].map(g=>(
+                <button key={g} type="button" onClick={()=>set({ studyGroup:g })} style={segBtn(Number(form.studyGroup)===g)}>{(lang==='ar'?'مجموعة ':'Group ')+g}</button>
+              ))}
+            </div>
+          </Field>
+        )}
+        <div style={{ fontSize:12, color:theme.muted, display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+          <Icon name="info" size={13} color={theme.muted} />
+          {lang==='ar'?'المجموعة: ':'Section: '}<strong style={{ color:theme.primaryDeep }}>{X.sectionLabel(previewKey, lang)}</strong>
+          {!isArabic && <span style={{ color:theme.mutedSoft }}>· {lang==='ar'?'الفصل يتبع الفصل الحالي للمركز':'Semester follows the current term'}</span>}
+        </div>
+      </div>
+    );
+  }
+
+  function ManagementDashboard({ user, lang, setLang, db, actions, onLogout, onHome, routeTab, onTab }) {
     const t = L(lang);
     const isDirector = user.role==='director';
-    const [active, setActive] = useState('teachers');
+    const [active, setActiveState] = useState(routeTab || 'teachers');
+    const setActive = (tb) => { setActiveState(tb); onTab && onTab(tb); };
+    useEffect(() => { if (routeTab && routeTab !== active) setActiveState(routeTab); }, [routeTab]);
     const uid = user.accessKey;
 
     const inbox = db.sharedItems.filter(i=>i.toUserId===uid);
@@ -71,7 +124,7 @@
     const pendingGrades = (db.courseGrades||[]).filter(g=>g.status==='confirmed').length;
 
     const [addModal, setAddModal] = useState(null); // 'teacher'|'management'|'student'
-    const emptyForm = { name:'', accessKey:'', password:'', phone:'', email:'', img:null, specsText:'', diploma:'sunnah', attendanceGroup:'weekend', academicYear:'' };
+    const emptyForm = { name:'', accessKey:'', password:'', phone:'', email:'', img:null, specsText:'', diploma:'sunnah', attendanceGroup:'weekday', studyYear:1, studyGroup:1, academicYear:'' };
     const [form, setForm] = useState(emptyForm);
     const [selTeacher, setSelTeacher] = useState(null);
     const [editTarget, setEditTarget] = useState(null); // المستخدم قيد التعديل
@@ -90,14 +143,21 @@
 
     const openAdd = (role)=>{ setForm({ ...emptyForm }); setEditTarget(null); setAddModal(role); };
     const openEdit = (u)=>{
-      setForm({ name:u.name||'', accessKey:u.accessKey, password:'', phone:u.phone||'', email:u.email||'', img:u.img||null, specsText:(u.specializations||[]).join('، '), diploma:u.diploma||'sunnah', attendanceGroup:u.attendanceGroup||'weekend', academicYear:u.academicYear||'' });
+      const sec = u.section ? X.parseSection(u.section) : null;
+      setForm({ name:u.name||'', accessKey:u.accessKey, password:'', phone:u.phone||'', email:u.email||'', img:u.img||null, specsText:(u.specializations||[]).join('، '), diploma:(sec&&sec.diploma)||u.diploma||'sunnah', attendanceGroup:(sec&&sec.timing)||u.attendanceGroup||'weekday', studyYear:(sec&&sec.year)||1, studyGroup:(sec&&sec.group)||1, academicYear:u.academicYear||'' });
       setAddModal(null); setEditTarget(u);
     };
     const saveAdd = ()=>{
       if(!form.name||!form.accessKey||!form.password) return;
       const payload = { name:form.name, accessKey:form.accessKey, password:form.password, phone:form.phone, email:form.email, img:form.img };
       if(addModal==='teacher') payload.specializations = form.specsText.split(/[،,]/).map(s=>s.trim()).filter(Boolean);
-      if(addModal==='student'){ payload.diploma = form.diploma; payload.attendanceGroup = form.attendanceGroup; payload.academicYear = tr(X.diploma(form.diploma)&&X.diploma(form.diploma).name, lang); }
+      if(addModal==='student'){
+        const section = X.buildSectionKey({ diploma:form.diploma, year:form.studyYear, timing:form.attendanceGroup, group:form.studyGroup });
+        payload.diploma = form.diploma;
+        payload.attendanceGroup = form.diploma==='arabic' ? form.attendanceGroup : null;
+        payload.section = section;
+        payload.academicYear = X.sectionLabel(section, lang);
+      }
       actions.addUser(addModal, payload);
       setAddModal(null);
     };
@@ -105,6 +165,13 @@
       if(!form.name||!editTarget) return;
       const payload = { name:form.name, phone:form.phone, email:form.email, img:form.img };
       if(editTarget.role==='teacher') payload.specializations = form.specsText.split(/[،,]/).map(s=>s.trim()).filter(Boolean);
+      if(editTarget.role==='student'){
+        const section = X.buildSectionKey({ diploma:form.diploma, year:form.studyYear, timing:form.attendanceGroup, group:form.studyGroup });
+        payload.diploma = form.diploma;
+        payload.attendanceGroup = form.diploma==='arabic' ? form.attendanceGroup : null;
+        payload.section = section;
+        payload.academicYear = X.sectionLabel(section, lang);
+      }
       actions.editUser(editTarget.accessKey, payload);
       setEditTarget(null);
     };
@@ -162,7 +229,7 @@
         {active==='schedules' && <SchedulesTab lang={lang} db={db} actions={actions} uid={uid} />}
         {active==='announcements' && <AnnouncementsTab lang={lang} db={db} actions={actions} uid={uid} />}
         {active==='cloud' && <CloudView lang={lang} db={db} actions={actions} uid={uid} canShare schedules={db.schedules} />}
-        {active==='students' && <LookupTab lang={lang} db={db} actions={actions} onAdd={()=>openAdd('student')} />}
+        {active==='students' && <LookupTab lang={lang} db={db} actions={actions} onAdd={()=>openAdd('student')} onEdit={openEdit} onDelete={actions.deleteUser} />}
         {active==='curriculum' && <CurriculumTab lang={lang} db={db} actions={actions} uid={uid} />}
         {active==='approval' && <ApprovalTab lang={lang} db={db} actions={actions} uid={uid} />}
 
@@ -190,18 +257,8 @@
               {role==='teacher' && (
                 <Field label={t('specializations')} hint={t('specsHint')}><Input value={form.specsText} onChange={e=>setForm({...form,specsText:e.target.value})} placeholder={lang==='ar'?'العقيدة، علم الرجال':'Aqidah, Rijal'} /></Field>
               )}
-              {role==='student' && !isEdit && (
-                <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
-                  <Field label={t('diploma')}><Select value={form.diploma} onChange={e=>setForm({...form,diploma:e.target.value})}>{X.DIPLOMAS.map(d=><option key={d.id} value={d.id}>{tr(d.name,lang)}</option>)}</Select></Field>
-                  <Field label={t('attendanceGroup')}>
-                    <div style={{ display:'flex', gap:6 }}>
-                      {[['weekend',t('weekend')],['weekday',t('weekday')]].map(([v,lab])=>{
-                        const on=form.attendanceGroup===v;
-                        return <button key={v} type="button" onClick={()=>setForm({...form,attendanceGroup:v})} style={{ flex:1, padding:'10px 6px', borderRadius:10, border:`1.5px solid ${on?theme.primary:theme.line}`, background:on?theme.creamDeep:theme.paper, cursor:'pointer', fontFamily:'Cairo, sans-serif', fontWeight:700, fontSize:12.5, color:on?theme.ink:theme.brown }}>{lab}</button>;
-                      })}
-                    </div>
-                  </Field>
-                </div>
+              {role==='student' && (
+                <StudentSectionFields form={form} setForm={setForm} lang={lang} t={t} />
               )}
               <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
                 <Field label={t('phone')}><Input value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})} dir="ltr" /></Field>

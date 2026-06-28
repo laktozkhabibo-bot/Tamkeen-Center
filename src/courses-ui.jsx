@@ -70,6 +70,38 @@
     );
   }
 
+  // فتح ملف المقرر عند الطلب (يُجلَب محتواه base64 من القاعدة لحظة النقر، لا عند التحميل)
+  async function openCourseFile(course) {
+    if (!course) return;
+    if (course.link && !course.fileName && !course.hasFile) { window.open(course.link, '_blank', 'noopener'); return; }
+    let fileData = course.fileData, fileName = course.fileName;
+    if (!fileData && (course.hasFile || course.fileName)) {
+      const f = await window.TCData.getCourseFile(course.id);
+      if (f) { fileData = f.fileData; fileName = f.fileName; }
+    }
+    if (fileData) {
+      const a = document.createElement('a');
+      a.href = fileData; a.download = fileName || 'course-file';
+      document.body.appendChild(a); a.click(); a.remove();
+    } else if (course.link) {
+      window.open(course.link, '_blank', 'noopener');
+    }
+  }
+
+  // رابط ملف المقرر — زر يجلب الملف عند النقر (مع حالة تحميل)
+  function CourseFileLink({ course, lang, style }) {
+    const [busy, setBusy] = React.useState(false);
+    const hasLink = course.link && !course.fileName && !course.hasFile;
+    const label = course.fileName || (hasLink ? (lang==='ar'?'فتح رابط المقرر':'Open course link') : (lang==='ar'?'فتح ملف المقرر':'Open course file'));
+    return (
+      <button type="button" disabled={busy}
+        onClick={async (e)=>{ e.stopPropagation(); setBusy(true); try { await openCourseFile(course); } catch(err){ alert((err&&err.message)||String(err)); } setBusy(false); }}
+        style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12.5, color:theme.primary, background:'none', border:'none', cursor:busy?'wait':'pointer', padding:0, marginTop:6, fontWeight:600, fontFamily:'Cairo, sans-serif', ...(style||{}) }}>
+        <Icon name="download" size={13} color={theme.primary} /> {busy?(lang==='ar'?'جارٍ الفتح…':'Opening…'):label}
+      </button>
+    );
+  }
+
   // بطاقة مقرر (للعرض): الرمز + الاسم + المعلمون + رابط
   function CourseCard({ course, lang, db, showTeachers, right }) {
     const d = X.diploma(course.diploma);
@@ -94,10 +126,8 @@
                 <Icon name="gradCap" size={13} color={theme.primary} /> {teachers.map(t=>t.name).join('، ')}
               </p>
             )}
-            {(course.fileData || course.link) && (
-              <a href={course.fileData || course.link} download={course.fileName || undefined} target="_blank" rel="noopener" style={{ display:'inline-flex', alignItems:'center', gap:5, fontSize:12.5, color:theme.primary, textDecoration:'none', marginTop:6, fontWeight:600 }}>
-                <Icon name="download" size={13} color={theme.primary} /> {course.fileName || (lang==='ar'?'فتح ملف المقرر':'Open course file')}
-              </a>
+            {(course.hasFile || course.fileData || course.link) && (
+              <CourseFileLink course={course} lang={lang} />
             )}
           </div>
           {right}
@@ -106,5 +136,5 @@
     );
   }
 
-  window.CoursesUI = { StatusBadge, SemesterBanner, GradeBreakdown, CourseCard };
+  window.CoursesUI = { StatusBadge, SemesterBanner, GradeBreakdown, CourseCard, CourseFileLink, openCourseFile };
 })();

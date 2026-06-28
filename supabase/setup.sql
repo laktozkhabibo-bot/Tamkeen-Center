@@ -230,6 +230,9 @@ create policy shared_insert on public.shared_items for insert to authenticated
 drop policy if exists shared_update on public.shared_items;
 create policy shared_update on public.shared_items for update to authenticated
   using ( to_user_id = public.current_access_key() );
+drop policy if exists shared_delete on public.shared_items;
+create policy shared_delete on public.shared_items for delete to authenticated
+  using ( to_user_id = public.current_access_key() or from_user_id = public.current_access_key() or public.is_staff() );
 
 -- cloud_items (المالك فقط) --------------------------------------------
 drop policy if exists cloud_all on public.cloud_items;
@@ -319,7 +322,7 @@ select public.seed_user('T100','1234','teacher','أ. خالد العتيبي', n
 select public.seed_user('T101','1234','teacher','أ. منى السالم', null, array['اللغة العربية','النحو'], null, '0500000011', 'mona@tamkeen.edu');
 select public.seed_user('S100','1234','student','محمد العمري', null, null, 'دبلوم السنة النبوية — السنة الأولى', '0500000020', 'm.alamri@mail.com');
 select public.seed_user('S101','1234','student','سارة القحطاني', null, null, 'دبلوم اللغة العربية — السنة الأولى', '0500000021', 'sara.q@mail.com');
-select public.seed_user('S102','1234','student','عبدالله الشهري', null, null, 'دبلوم التمريض — السنة الثانية', '0500000022', 'a.alshehri@mail.com');
+select public.seed_user('S102','1234','student','عبدالله الشهري', null, null, 'دبلوم السنة النبوية — السنة الثانية', '0500000022', 'a.alshehri@mail.com');
 
 -- توكيلات تجريبية
 insert into public.delegations (teacher_id, type, title, description, subject_name, class_name, student_ids, assigned_by)

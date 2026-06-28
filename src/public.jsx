@@ -2,7 +2,7 @@
    Public site — window.Public.PublicSite + Header
    ========================================================================= */
 (function () {
-  const { theme, L, pick, Icon, diplomas, leadership } = window.TC;
+  const { theme, L, pick, Icon, diplomas, leadership, initials } = window.TC;
   const { Logo, Btn, Card, Badge } = window.UI;
   const { useState, useEffect, useRef } = React;
 
@@ -95,44 +95,56 @@
       { eyebrow:t('heroEyebrow'), title:t('heroTitle2'), body:t('heroBody2') },
       { eyebrow:t('heroEyebrow'), title:t('heroTitle3'), body:t('heroBody3') },
     ];
-    const [i, setI] = useState(0);
-    useEffect(() => { const id = setInterval(()=>setI(p=>(p+1)%slides.length), 6000); return ()=>clearInterval(id); }, []);
+    const isAr = lang === 'ar';
+    const heroImgs = ['hero1','hero2','hero3','hero4','hero5','hero6','hero7'];
+    const [tick, setTick] = useState(0);
+    useEffect(() => { const id = setInterval(()=>setTick(p=>p+1), 6000); return ()=>clearInterval(id); }, []);
+    const bg = tick % heroImgs.length;
+    const i = tick % slides.length;
+    const sideDir = isAr ? 'to left' : 'to right';
+    // تدرّج باللون الرملي: قويّ عند جهة النص (اليمين للعربية) ثم يخفّ تدريجيًا حتى يشفّ تمامًا نحو اليسار
+    const sand = '120,90,46'; // لون رملي دافئ من هوية المركز (عمق كافٍ ليُقرأ النص الأبيض)
+    const scrim = `linear-gradient(${sideDir}, rgba(${sand},.97) 0%, rgba(${sand},.9) 22%, rgba(${sand},.62) 48%, rgba(${sand},.26) 72%, rgba(${sand},0) 100%)`;
     return (
-      <section style={{ background:`linear-gradient(160deg, ${theme.cream} 0%, ${theme.paperAlt} 100%)`, borderBottom:`1px solid ${theme.line}`, overflow:'hidden' }}>
-        <div style={{ maxWidth:1200, margin:'0 auto', padding:'clamp(40px,6vw,80px) 22px', display:'grid', gridTemplateColumns:'1.05fr .95fr', gap:48, alignItems:'center' }} className="tc-hero-grid">
-          <div>
-            <Badge tone="gold" style={{ marginBottom:18, fontSize:12.5, padding:'5px 12px' }}>
-              <Icon name="sparkles" size={13} /> {slides[i].eyebrow}
-            </Badge>
-            <h1 key={i} style={{ fontFamily:'Amiri, serif', fontWeight:700, fontSize:'clamp(30px,4.4vw,52px)', lineHeight:1.25, color:theme.ink, margin:'0 0 18px' }}>
+      <section style={{ position:'relative', overflow:'hidden', minHeight:'clamp(540px,84vh,760px)', display:'flex', alignItems:'center', borderBottom:`1px solid ${theme.line}` }}>
+        {/* الخلفية: صور حقيقية للمركز تتبدّل بهدوء */}
+        <div style={{ position:'absolute', inset:0, zIndex:0 }}>
+          {heroImgs.map((im,k)=>(
+            <img key={im} src={`assets/${im}.jpg`} alt="مركز تمكين"
+              style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover',
+                opacity:bg===k?1:0, transition:'opacity 1.1s ease', transform:bg===k?'scale(1.06)':'scale(1)', transitionProperty:'opacity, transform', transitionDuration:'1.1s, 5.6s' }} />
+          ))}
+          <div style={{ position:'absolute', inset:0, background:scrim }} />
+        </div>
+
+        {/* المحتوى */}
+        <div style={{ position:'relative', zIndex:1, width:'100%', maxWidth:1200, margin:'0 auto', padding:'clamp(48px,7vw,96px) 26px' }}>
+          <div key={i} style={{ maxWidth:680, animation:'tcFade .85s ease' }}>
+            <span style={{ display:'inline-flex', alignItems:'center', gap:6, marginBottom:20, fontSize:12.5, fontWeight:700,
+              color:'#fff', background:'rgba(255,255,255,.14)', border:'1px solid rgba(255,255,255,.28)', backdropFilter:'blur(6px)',
+              padding:'6px 13px', borderRadius:999 }}>
+              <Icon name="sparkles" size={13} color={theme.goldSoft} /> {slides[i].eyebrow}
+            </span>
+            <h1 style={{ fontFamily:'Amiri, serif', fontWeight:700, fontSize:'clamp(26px,4vw,46px)', lineHeight:1.25,
+              color:'#fff', margin:'0 0 20px', textShadow:'0 2px 24px rgba(20,14,6,.45)' }}>
               {slides[i].title}
             </h1>
-            <p style={{ fontSize:'clamp(15px,1.5vw,18px)', lineHeight:1.85, color:theme.brown, maxWidth:520, margin:'0 0 30px' }}>
+            <p style={{ fontSize:'clamp(15.5px,1.6vw,19px)', lineHeight:1.9, color:'rgba(255,255,255,.92)', maxWidth:560,
+              margin:'0 0 32px', textShadow:'0 1px 12px rgba(20,14,6,.4)' }}>
               {slides[i].body}
             </p>
-            <div style={{ display:'flex', gap:12, flexWrap:'wrap' }}>
-              <Btn size="lg" variant="primary" icon="user" onClick={onRegister}>{t('ctaRegister')}</Btn>
-              <Btn size="lg" variant="ghost" iconRight={lang==='ar'?'arrowLeft':'arrowRight'} onClick={onDiplomas}>{t('ctaExplore')}</Btn>
+            <div style={{ display:'flex', gap:13, flexWrap:'wrap' }}>
+              <Btn size="lg" variant="primary" icon="user" onClick={onRegister}
+                style={{ background:theme.goldSoft, color:theme.primaryDeep, border:`1px solid ${theme.goldSoft}`, boxShadow:'0 16px 34px -14px rgba(0,0,0,.45)' }}>{t('ctaRegister')}</Btn>
+              <Btn size="lg" iconRight={isAr?'arrowLeft':'arrowRight'} onClick={onDiplomas}
+                style={{ background:'rgba(255,255,255,.12)', color:'#fff', border:'1px solid rgba(255,255,255,.45)', backdropFilter:'blur(6px)' }}>{t('ctaExplore')}</Btn>
             </div>
-            <div style={{ display:'flex', gap:8, marginTop:34 }}>
-              {slides.map((_,k)=>(
-                <button key={k} onClick={()=>setI(k)} style={{ width:k===i?28:9, height:9, borderRadius:999, border:'none', cursor:'pointer', background:k===i?theme.primary:theme.line, transition:'all .3s ease' }} />
+            <div style={{ display:'flex', gap:8, marginTop:38 }}>
+              {heroImgs.map((_,k)=>(
+                <button key={k} onClick={()=>setBg(k)} aria-label={`صورة ${k+1}`}
+                  style={{ width:bg===k?30:10, height:10, borderRadius:999, border:'none', cursor:'pointer',
+                    background:bg===k?'#fff':'rgba(255,255,255,.4)', transition:'all .3s ease', padding:0 }} />
               ))}
-            </div>
-          </div>
-          <div style={{ position:'relative' }}>
-            <div style={{ position:'relative', width:'100%', height:380, borderRadius:22, overflow:'hidden', border:`1px solid ${theme.line}`, boxShadow:'0 24px 50px -28px rgba(71,60,40,.5)' }}>
-              {['img1','img2','img3'].map((im,k)=>(
-                <img key={im} src={`assets/${im}.jpg`} alt="Tamkeen Center"
-                  style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover', opacity:i===k?1:0, transition:'opacity .9s ease' }} />
-              ))}
-            </div>
-            <div style={{ position:'absolute', insetInlineStart:-18, bottom:-18, background:theme.paper, border:`1px solid ${theme.line}`, borderRadius:16, padding:'14px 18px', boxShadow:'0 18px 40px -22px rgba(71,60,40,.45)', display:'flex', alignItems:'center', gap:12 }}>
-              <div style={{ width:42, height:42, borderRadius:12, background:theme.goldSoft, display:'flex', alignItems:'center', justifyContent:'center' }}><Icon name="award" size={22} color={theme.primaryDeep} /></div>
-              <div>
-                <div style={{ fontWeight:800, fontSize:18, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{lang==='ar'?'٣ برامج معتمدة':'3 Programs'}</div>
-                <div style={{ fontSize:12, color:theme.muted }}>{lang==='ar'?'دبلومات متخصصة':'Accredited diplomas'}</div>
-              </div>
             </div>
           </div>
         </div>
@@ -169,14 +181,14 @@
             <span key={`${gk}-${r}-${i}-v`} style={{ fontFamily: lang==='ar' ? 'Amiri, serif' : 'inherit', fontSize:16, fontWeight:600, whiteSpace:'nowrap' }}>{v}</span>
           );
           out.push(
-            <span key={`${gk}-${r}-${i}-s`} aria-hidden="true" style={{ padding:'0 28px', color:theme.tan }}>۞</span>
+            <span key={`${gk}-${r}-${i}-s`} aria-hidden="true" style={{ padding:'0 28px', color:theme.goldSoft }}>۞</span>
           );
         });
       }
       return out;
     };
     return (
-      <div style={{ background:theme.ink, color:theme.goldSoft, overflow:'hidden', padding:'13px 0', direction:'ltr' }}>
+      <div style={{ background:theme.primary, color:'#fff', overflow:'hidden', padding:'13px 0', direction:'ltr' }}>
         {/* direction:ltr on the whole bar pins the track to the left edge so it overflows
             rightward and the leftward animation always pulls fresh content into view.
             The two identical groups + exact -50% travel make the loop perfectly seamless. */}
@@ -188,13 +200,83 @@
     );
   }
 
+  // ---- custom video player: caps duration (so it reads e.g. 0:50 not 0:53)
+  //      and returns to the poster image once it ends.
+  function VideoPlayer({ src, poster, lang, cap }) {
+    const t = L(lang);
+    const ref = useRef(null);
+    const dragging = useRef(false);
+    const [playing, setPlaying] = useState(false);
+    const [started, setStarted] = useState(false); // false => show poster cover
+    const [cur, setCur] = useState(0);
+    const [realDur, setRealDur] = useState(0);
+    const [muted, setMuted] = useState(false);
+    const total = cap ? Math.min(cap, realDur || cap) : (realDur || 0);
+    const pct = total ? (Math.min(cur, total) / total) * 100 : 0;
+    const fmt = (s) => { s = Math.max(0, Math.floor(s || 0)); return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`; };
+
+    const reset = () => { const v = ref.current; if (v) { v.pause(); v.currentTime = 0; } setPlaying(false); setStarted(false); setCur(0); };
+    const onLoaded = (e) => setRealDur(e.target.duration || 0);
+    const onPlay = () => { setStarted(true); setPlaying(true); };
+    const onPause = () => setPlaying(false);
+    const onTime = (e) => {
+      if (dragging.current) return;
+      const c = e.target.currentTime;
+      if (cap && c >= cap) { reset(); return; }
+      setCur(c);
+    };
+    const toggle = () => {
+      const v = ref.current; if (!v) return;
+      if (v.paused) { v.play(); } else { v.pause(); }
+    };
+    const onSeekInput = (e) => { const val = Number(e.target.value); setCur(val); const v = ref.current; if (v) v.currentTime = val; };
+    const startDrag = () => { dragging.current = true; };
+    const endDrag = () => { dragging.current = false; };
+    const toggleMute = () => { const v = ref.current; if (!v) return; v.muted = !v.muted; setMuted(v.muted); };
+    const goFs = () => { const c = ref.current && ref.current.parentElement; if (c && c.requestFullscreen) c.requestFullscreen(); };
+    const ctrlBtn = { background:'none', border:'none', cursor:'pointer', color:'#fff', display:'flex', alignItems:'center', justifyContent:'center', padding:4, flexShrink:0 };
+
+    return (
+      <div style={{ position:'relative', borderRadius:20, overflow:'hidden', border:`1px solid ${theme.line}`, boxShadow:'0 26px 56px -28px rgba(71,60,40,.55)', background:'#000' }}>
+        <video ref={ref} key={src} playsInline poster={poster} onClick={toggle}
+          onLoadedMetadata={onLoaded} onTimeUpdate={onTime} onPlay={onPlay} onPause={onPause} onEnded={reset}
+          style={{ width:'100%', aspectRatio:'16 / 10', objectFit:'cover', display:'block', cursor:'pointer' }}>
+          <source src={src} type="video/mp4" />
+        </video>
+
+        {/* poster cover (before first play & after it ends) */}
+        {!started && (
+          <button onClick={toggle} aria-label={t('watchVideo')}
+            style={{ position:'absolute', inset:0, border:'none', cursor:'pointer', padding:0, background:`center/cover no-repeat url(${poster})` }}>
+            <span style={{ position:'absolute', inset:0, background:'rgba(20,14,6,.30)' }} />
+            <span style={{ position:'absolute', top:'50%', left:'50%', transform:'translate(-50%,-50%)', width:74, height:74, borderRadius:'50%', background:'rgba(252,250,243,.94)', display:'flex', alignItems:'center', justifyContent:'center', boxShadow:'0 12px 30px -8px rgba(0,0,0,.55)' }}>
+              <Icon name="play" size={30} color={theme.primaryDeep} style={{ marginInlineStart:3 }} />
+            </span>
+          </button>
+        )}
+
+        {/* custom control bar — always visible */}
+        <div style={{ position:'absolute', insetInline:0, bottom:0, padding:'12px 14px 11px', display:'flex', alignItems:'center', gap:11, direction:'ltr', background:'linear-gradient(to top, rgba(20,14,6,.74), rgba(20,14,6,0))' }}>
+          <button onClick={toggle} style={ctrlBtn} aria-label={playing?'pause':'play'}><Icon name={playing?'pause':'play'} size={20} color="#fff" /></button>
+          <span style={{ color:'#fff', fontSize:12.5, fontWeight:600, fontVariantNumeric:'tabular-nums', whiteSpace:'nowrap' }}>{fmt(cur)} / {fmt(total)}</span>
+          <input className="tc-seek" type="range" min="0" max={total || 0} step="0.1" value={Math.min(cur, total || 0)}
+            onChange={onSeekInput} onInput={onSeekInput}
+            onMouseDown={startDrag} onMouseUp={endDrag} onTouchStart={startDrag} onTouchEnd={endDrag}
+            style={{ flex:1, background:`linear-gradient(to right, ${theme.goldSoft} ${pct}%, rgba(255,255,255,.28) ${pct}%)` }} />
+          <button onClick={toggleMute} style={ctrlBtn} aria-label="mute"><Icon name={muted?'volumeX':'volume2'} size={19} color="#fff" /></button>
+          <button onClick={goFs} style={ctrlBtn} aria-label="fullscreen"><Icon name="maximize" size={18} color="#fff" /></button>
+        </div>
+      </div>
+    );
+  }
+
   function ContentSection({ lang, onDiplomas }) {
     const t = L(lang);
     const stats = [
-      { n:'+450', l:t('statStudents'), icon:'users' },
-      { n:'35', l:t('statTeachers'), icon:'gradCap' },
-      { n:'3', l:t('statPrograms'), icon:'scroll' },
-      { n:'+12', l:t('statYears'), icon:'award' },
+      { n:'+357', l:t('statStudents'), icon:'users' },
+      { n:'26', l:t('statTeachers'), icon:'gradCap' },
+      { n:'9', l:t('statPrograms'), icon:'scroll' },
+      { n:'+3', l:t('statYears'), icon:'award' },
     ];
     const feats = [
       { icon:'shield', t:t('feat1T'), b:t('feat1B') },
@@ -237,10 +319,9 @@
             ))}
           </div>
           <div style={{ position:'relative' }}>
-            <video key={lang} controls playsInline poster="assets/img4.jpg"
-              style={{ width:'100%', aspectRatio:'16 / 10', objectFit:'cover', borderRadius:20, border:`1px solid ${theme.line}`, boxShadow:'0 26px 56px -28px rgba(71,60,40,.55)', background:'#000', display:'block' }}>
-              <source src={lang==='ar' ? 'assets/ar-video.mp4' : 'assets/en-video.mp4'} type="video/mp4" />
-            </video>
+            <VideoPlayer key={lang} lang={lang} poster="assets/img4.jpg"
+              src={lang==='ar' ? 'assets/ar-video.mp4' : 'assets/en-video.mp4'}
+              cap={lang==='ar' ? 50 : null} />
             <div style={{ position:'absolute', insetInlineStart:16, top:16, background:'rgba(50,46,38,.72)', color:'#fff', borderRadius:999, padding:'6px 13px', fontSize:12.5, fontWeight:600, display:'flex', alignItems:'center', gap:7, backdropFilter:'blur(4px)' }}>
               <Icon name="sparkles" size={14} color={theme.goldSoft} /> {t('watchVideo')}
             </div>
@@ -320,26 +401,29 @@
                 <div style={{ display:'grid', gridTemplateColumns: sec.members.length===1 ? 'minmax(0,420px)' : 'repeat(auto-fit, minmax(280px, 1fr))', gap:22, justifyContent:'center' }}>
                   {sec.members.map((m,k)=>(
                     <Card key={k} pad={26} hover style={{ textAlign:'center', display:'flex', flexDirection:'column', alignItems:'center' }}>
-                      <div style={{ width:108, height:108, borderRadius:'50%', marginBottom:16, overflow:'hidden', border:`3px solid ${theme.goldSoft}`, flexShrink:0 }}>
-                        <img src={m.img} alt={pick(m.name, lang)} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                      <div style={{ width:108, height:108, borderRadius:'50%', marginBottom:16, overflow:'hidden', border:`3px solid ${theme.goldSoft}`, flexShrink:0, background:theme.creamDeep, display:'flex', alignItems:'center', justifyContent:'center' }}>
+                        {m.img
+                          ? <img src={m.img} alt={pick(m.name, lang)} style={{ width:'100%', height:'100%', objectFit:'cover' }} />
+                          : <span style={{ fontFamily:'Cairo, sans-serif', fontWeight:800, fontSize:34, color:accent }}>{initials(pick(m.name, lang))}</span>}
                       </div>
                       <h3 style={{ fontSize:18.5, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif', marginBottom:6 }}>{pick(m.name, lang)}</h3>
                       <div style={{ display:'inline-flex', alignItems:'center', gap:6, background:theme.creamDeep, color:accent, fontWeight:700, fontSize:13.5, padding:'5px 14px', borderRadius:999, marginBottom:14 }}>
                         <Icon name="award" size={14} /> {pick(m.position, lang)}
                       </div>
-                      <div style={{ width:'100%', display:'grid', gap:9, paddingTop:14, borderTop:`1px solid ${theme.lineSoft}` }}>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:7, fontSize:13, color:theme.brown }}>
-                          <Icon name="briefcase" size={14} color={theme.muted} />
-                          <span style={{ color:theme.muted }}>{t('specialization2')}:</span>
-                          <span style={{ fontWeight:600, color:theme.ink }}>{pick(m.specialization, lang)}</span>
+                      {(m.email || m.phone) && (
+                        <div style={{ width:'100%', display:'grid', gap:9, paddingTop:14, borderTop:`1px solid ${theme.lineSoft}` }}>
+                          {m.email && (
+                            <a href={`mailto:${m.email}`} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:7, fontSize:12.5, color:theme.brown, textDecoration:'none' }} dir="ltr">
+                              <Icon name="mail" size={14} color={theme.muted} /> <span style={{ fontWeight:600 }}>{m.email}</span>
+                            </a>
+                          )}
+                          {m.phone && (
+                            <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:7, fontSize:12.5, color:theme.brown }} dir="ltr">
+                              <Icon name="phone" size={14} color={theme.muted} /> <span style={{ fontWeight:600 }}>{m.phone}</span>
+                            </div>
+                          )}
                         </div>
-                        <a href={`mailto:${m.email}`} style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:7, fontSize:12.5, color:theme.brown, textDecoration:'none' }} dir="ltr">
-                          <Icon name="mail" size={14} color={theme.muted} /> <span style={{ fontWeight:600 }}>{m.email}</span>
-                        </a>
-                        <div style={{ display:'flex', alignItems:'center', justifyContent:'center', gap:7, fontSize:12.5, color:theme.brown }} dir="ltr">
-                          <Icon name="phone" size={14} color={theme.muted} /> <span style={{ fontWeight:600 }}>{m.phone}</span>
-                        </div>
-                      </div>
+                      )}
                     </Card>
                   ))}
                 </div>
@@ -386,8 +470,8 @@
     return (
       <div>
         <PageHead lang={lang} title={t('dipTitle')} sub={t('dipSub')} icon="scroll" />
-        <div style={{ maxWidth:1100, margin:'0 auto', padding:'clamp(40px,6vw,72px) 22px' }}>
-          <div style={{ display:'grid', gridTemplateColumns:'repeat(3,1fr)', gap:22 }} className="tc-feat-grid">
+        <div style={{ maxWidth:1040, margin:'0 auto', padding:'clamp(40px,6vw,72px) 22px' }}>
+          <div style={{ display:'grid', gridTemplateColumns:'repeat(2, 1fr)', gap:24 }} className="tc-diploma-grid">
             {diplomas.map((d)=>(
               <Card key={d.id} pad={0} hover style={{ overflow:'hidden', display:'flex', flexDirection:'column' }}>
                 <div style={{ height:130, background:`linear-gradient(150deg, ${d.color}, ${theme.primaryDeep})`, position:'relative', display:'flex', alignItems:'center', justifyContent:'center' }}>
@@ -434,9 +518,9 @@
           <div>
             <h4 style={{ color:'#fff', fontSize:15, fontWeight:700, marginBottom:14, fontFamily:'Cairo, sans-serif' }}>{t('contact')}</h4>
             <div style={{ display:'grid', gap:11, fontSize:14 }}>
-              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="mapPin" size={16} color={theme.goldSoft} /> {lang==='ar'?'الرياض، المملكة العربية السعودية':'Riyadh, Saudi Arabia'}</span>
-              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="phone" size={16} color={theme.goldSoft} /> <span dir="ltr">+966 50 000 0000</span></span>
-              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="mail" size={16} color={theme.goldSoft} /> <span dir="ltr">info@tamkeen.edu</span></span>
+              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="mapPin" size={16} color={theme.goldSoft} /> {lang==='ar'?'كانو — جمهورية نيجيريا الاتحادية':'Kano, Federal Republic of Nigeria'}</span>
+              <span style={{ display:'flex', alignItems:'flex-start', gap:9 }}><Icon name="phone" size={16} color={theme.goldSoft} style={{ marginTop:3, flexShrink:0 }} /> <span dir="ltr" style={{ display:'grid', gap:3 }}><span>+234 810 478 8888</span><span>+234 707 088 8870</span></span></span>
+              <span style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="mail" size={16} color={theme.goldSoft} /> <span dir="ltr">tamkeen.nigeria@gmail.com</span></span>
             </div>
           </div>
         </div>

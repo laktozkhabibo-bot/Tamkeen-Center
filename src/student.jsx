@@ -7,11 +7,13 @@
   const { DashShell, InboxView, ScheduleTable, downloadScheduleCSV, AnnouncementsView } = window.Dash;
   const { SemesterBanner, CourseCard, GradeBreakdown, StatusBadge } = window.CoursesUI;
   const X = window.TCX;
-  const { useState } = React;
+  const { useState, useEffect } = React;
 
-  function StudentDashboard({ user, lang, setLang, db, actions, onLogout, onHome }) {
+  function StudentDashboard({ user, lang, setLang, db, actions, onLogout, onHome, routeTab, onTab }) {
     const t = L(lang);
-    const [active, setActive] = useState('inbox');
+    const [active, setActiveState] = useState(routeTab || 'inbox');
+    const setActive = (tb) => { setActiveState(tb); onTab && onTab(tb); };
+    useEffect(() => { if (routeTab && routeTab !== active) setActiveState(routeTab); }, [routeTab]);
     const uid = user.accessKey;
 
     const inbox = db.sharedItems.filter(i=>i.toUserId===uid);
@@ -47,7 +49,7 @@
       <DashShell user={user} lang={lang} setLang={setLang} panelLabel={t('studentPanel')} accent={theme.gold}
         tabs={tabs} active={active} setActive={setActive} onLogout={onLogout} onHome={onHome}>
 
-        {active==='inbox' && <InboxView items={inbox} users={db.users} lang={lang} onMarkRead={actions.markRead} onDownloadSchedule={downloadScheduleCSV} />}
+        {active==='inbox' && <InboxView items={inbox} users={db.users} lang={lang} onMarkRead={actions.markRead} onDownloadSchedule={downloadScheduleCSV} onDelete={actions.deleteSharedItem} />}
 
         {active==='announcements' && <AnnouncementsView announcements={db.announcements} role="student" lang={lang} />}
 

@@ -11,22 +11,29 @@
   function SchedulesTab({ lang, db, actions, uid }) {
     const t = L(lang);
     const [builder, setBuilder] = useState(false);
+    const [editId, setEditId] = useState(null);
     const [sel, setSel] = useState(null);
-    const [sch, setSch] = useState({ name:'', type:'weekly', columns:['اليوم','الحصة 1','الحصة 2'], rows:[['','',''],['','','']] });
+    const blankSch = { name:'', type:'weekly', columns:['اليوم','الحصة 1','الحصة 2'], rows:[['','',''],['','','']] };
+    const [sch, setSch] = useState(blankSch);
 
     const selected = db.schedules.find(s=>s.id===sel);
     const setCol = (i,v)=>setSch(p=>({ ...p, columns:p.columns.map((c,k)=>k===i?v:c) }));
     const setCell = (r,c,v)=>setSch(p=>({ ...p, rows:p.rows.map((row,ri)=>ri===r?row.map((cell,ci)=>ci===c?v:cell):row) }));
     const addCol = ()=>setSch(p=>({ ...p, columns:[...p.columns,''], rows:p.rows.map(r=>[...r,'']) }));
     const addRow = ()=>setSch(p=>({ ...p, rows:[...p.rows, p.columns.map(()=>'')] }));
-    const create = ()=>{ if(!sch.name||!sch.columns.filter(c=>c.trim()).length) return; actions.addSchedule(sch, uid); setBuilder(false); setSch({ name:'', type:'weekly', columns:['اليوم','الحصة 1','الحصة 2'], rows:[['','',''],['','','']] }); };
+    const removeCol = (i)=>setSch(p=>({ ...p, columns:p.columns.filter((_,k)=>k!==i), rows:p.rows.map(r=>r.filter((_,k)=>k!==i)) }));
+    const removeRow = (i)=>setSch(p=>({ ...p, rows:p.rows.filter((_,k)=>k!==i) }));
+    const openNew = ()=>{ setEditId(null); setSch(blankSch); setBuilder(true); };
+    const openEdit = (s)=>{ setEditId(s.id); setSch({ name:s.title, type:s.type, columns:[...s.columns], rows:s.rows.map(r=>[...r]) }); setBuilder(true); };
+    const closeBuilder = ()=>{ setBuilder(false); setEditId(null); setSch(blankSch); };
+    const save = ()=>{ if(!sch.name||!sch.columns.filter(c=>c.trim()).length) return; if(editId) actions.updateSchedule(editId, sch); else actions.addSchedule(sch, uid); closeBuilder(); };
 
     return (
       <div style={{ display:'flex', gap:24 }} className="tc-split">
         <div style={{ width:300, flexShrink:0 }} className="tc-split-aside">
           <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:14 }}>
             <div style={{ display:'flex', alignItems:'center', gap:9 }}><Icon name="calendar" size={18} color={theme.primary} /><h3 style={{ fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{t('schedules')}</h3><Badge tone="neutral">{db.schedules.length}</Badge></div>
-            <Btn size="sm" variant="primary" icon="plus" onClick={()=>setBuilder(true)}>{t('add')}</Btn>
+            <Btn size="sm" variant="primary" icon="plus" onClick={openNew}>{t('add')}</Btn>
           </div>
           <div style={{ display:'grid', gap:8 }}>
             {db.schedules.length===0 ? <EmptyState icon="calendar" title={t('noSchedules')} /> :
@@ -46,6 +53,7 @@
               <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', marginBottom:16 }}>
                 <h3 style={{ fontSize:17, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{selected.title}</h3>
                 <div style={{ display:'flex', gap:8 }}>
+                  <Btn size="sm" variant="soft" icon="edit" onClick={()=>openEdit(selected)}>{t('edit')}</Btn>
                   <Btn size="sm" variant="soft" icon="download" onClick={()=>downloadScheduleCSV({ itemName:selected.title, scheduleData:selected })}>{t('downloadExcel')}</Btn>
                   <Btn size="sm" variant="danger" icon="trash" onClick={()=>{ actions.deleteSchedule(selected.id); setSel(null); }}>{t('delete')}</Btn>
                 </div>
@@ -61,7 +69,7 @@
         </div>
 
         {builder && (
-          <Modal title={t('newSchedule')} onClose={()=>setBuilder(false)} width={680}>
+          <Modal title={editId ? (lang==='ar'?'تعديل الجدول':'Edit schedule') : t('newSchedule')} onClose={closeBuilder} width={680}>
             <div style={{ display:'grid', gap:16 }}>
               <div style={{ display:'grid', gridTemplateColumns:'2fr 1fr', gap:12 }}>
                 <Field label={t('scheduleName')}><Input value={sch.name} onChange={e=>setSch({...sch,name:e.target.value})} placeholder={lang==='ar'?'مثال: الجدول الأسبوعي':'e.g. Weekly schedule'} /></Field>
@@ -69,14 +77,14 @@
               </div>
               <div style={{ overflowX:'auto', border:`1px solid ${theme.line}`, borderRadius:12, padding:10 }}>
                 <table style={{ borderCollapse:'collapse' }}>
-                  <thead><tr>{sch.columns.map((c,i)=>(<th key={i} style={{ padding:4 }}><input value={c} onChange={e=>setCol(i,e.target.value)} style={{ width:120, padding:'7px 9px', borderRadius:8, border:`1px solid ${theme.line}`, background:theme.creamDeep, fontWeight:700, fontSize:12.5, color:theme.ink, textAlign:'center', outline:'none', fontFamily:'Cairo, sans-serif' }} /></th>))}<th style={{ padding:4 }}><button onClick={addCol} style={{ width:34, height:34, borderRadius:8, border:`1px dashed ${theme.line}`, background:theme.paper, cursor:'pointer', color:theme.primary }}><Icon name="plus" size={15} /></button></th></tr></thead>
-                  <tbody>{sch.rows.map((row,ri)=>(<tr key={ri}>{row.map((cell,ci)=>(<td key={ci} style={{ padding:4 }}><input value={cell} onChange={e=>setCell(ri,ci,e.target.value)} style={{ width:120, padding:'7px 9px', borderRadius:8, border:`1px solid ${theme.lineSoft}`, background:theme.paper, fontSize:12.5, color:theme.brown, textAlign:'center', outline:'none', fontFamily:'Cairo, sans-serif' }} /></td>))}</tr>))}</tbody>
+                  <thead><tr>{sch.columns.map((c,i)=>(<th key={i} style={{ padding:4, verticalAlign:'top' }}><div style={{ display:'flex', flexDirection:'column', gap:4, alignItems:'center' }}><input value={c} onChange={e=>setCol(i,e.target.value)} style={{ width:120, padding:'7px 9px', borderRadius:8, border:`1px solid ${theme.line}`, background:theme.creamDeep, fontWeight:700, fontSize:12.5, color:theme.ink, textAlign:'center', outline:'none', fontFamily:'Cairo, sans-serif' }} />{sch.columns.length>1 && <button onClick={()=>removeCol(i)} title={t('delete')} style={{ width:22, height:22, borderRadius:6, border:'none', background:'transparent', cursor:'pointer', color:theme.bad, display:'flex', alignItems:'center', justifyContent:'center' }}><Icon name="x" size={13} /></button>}</div></th>))}<th style={{ padding:4, verticalAlign:'top' }}><button onClick={addCol} title={lang==='ar'?'إضافة عمود':'Add column'} style={{ width:34, height:34, borderRadius:8, border:`1px dashed ${theme.line}`, background:theme.paper, cursor:'pointer', color:theme.primary }}><Icon name="plus" size={15} /></button></th></tr></thead>
+                  <tbody>{sch.rows.map((row,ri)=>(<tr key={ri}>{row.map((cell,ci)=>(<td key={ci} style={{ padding:4 }}><input value={cell} onChange={e=>setCell(ri,ci,e.target.value)} style={{ width:120, padding:'7px 9px', borderRadius:8, border:`1px solid ${theme.lineSoft}`, background:theme.paper, fontSize:12.5, color:theme.brown, textAlign:'center', outline:'none', fontFamily:'Cairo, sans-serif' }} /></td>))}<td style={{ padding:4 }}>{sch.rows.length>1 && <button onClick={()=>removeRow(ri)} title={lang==='ar'?'حذف الصف':'Delete row'} style={{ width:30, height:30, borderRadius:8, border:'none', background:'transparent', cursor:'pointer', color:theme.bad, display:'flex', alignItems:'center', justifyContent:'center' }}><Icon name="trash" size={14} /></button>}</td></tr>))}</tbody>
                 </table>
                 <button onClick={addRow} style={{ marginTop:8, display:'flex', alignItems:'center', gap:6, background:theme.paper, border:`1px dashed ${theme.line}`, borderRadius:8, padding:'6px 12px', cursor:'pointer', color:theme.primary, fontSize:12.5, fontFamily:'Cairo, sans-serif', fontWeight:600 }}><Icon name="plus" size={14} />{t('addRow')}</button>
               </div>
               <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
-                <Btn variant="soft" onClick={()=>setBuilder(false)}>{t('cancel')}</Btn>
-                <Btn variant="primary" icon="check" onClick={create}>{t('createSchedule')}</Btn>
+                <Btn variant="soft" onClick={closeBuilder}>{t('cancel')}</Btn>
+                <Btn variant="primary" icon="check" onClick={save}>{editId ? t('save') : t('createSchedule')}</Btn>
               </div>
             </div>
           </Modal>
@@ -251,7 +259,7 @@
   }
 
   // --------------------------------------------------- STUDENTS MANAGEMENT
-  function LookupTab({ lang, db, actions, onAdd }) {
+  function LookupTab({ lang, db, actions, onAdd, onEdit, onDelete }) {
     const t = L(lang);
     const X = window.TCX;
     const { GradeBreakdown, StatusBadge } = window.CoursesUI;
@@ -317,10 +325,18 @@
                     <p style={{ fontSize:13, color:theme.muted }} dir="ltr">{selected.accessKey}</p>
                     <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:4, flexWrap:'wrap' }}>
                       <span style={{ fontSize:13, color:theme.brown }}>{selected.diploma ? tr(X.diploma(selected.diploma)&&X.diploma(selected.diploma).name) : (selected.academicYear||'')}</span>
-                      {selected.attendanceGroup && <Badge tone="neutral">{selected.attendanceGroup==='weekend'?t('weekend'):t('weekday')}</Badge>}
+                      {selected.section && <Badge tone="neutral">{X.sectionLabel(selected.section, lang)}</Badge>}
                     </div>
                   </div>
-                  <ScoreRing value={beh} size={88} label={t('behavior')} />
+                  <div style={{ display:'flex', flexDirection:'column', alignItems:'center', gap:12 }}>
+                    <ScoreRing value={beh} size={88} label={t('behavior')} />
+                    {(onEdit || onDelete) && (
+                      <div style={{ display:'flex', gap:8 }}>
+                        {onEdit && <Btn size="sm" variant="soft" icon="edit" onClick={()=>onEdit(selected)}>{t('edit')}</Btn>}
+                        {onDelete && <Btn size="sm" variant="danger" icon="trash" onClick={async()=>{ await onDelete(selected.accessKey); setSelId(null); }}>{t('delete')}</Btn>}
+                      </div>
+                    )}
+                  </div>
                 </div>
                 {/* الحالة + السلوك */}
                 <div style={{ display:'flex', alignItems:'center', gap:16, marginTop:16, paddingTop:16, borderTop:`1px solid ${theme.lineSoft}`, flexWrap:'wrap' }}>

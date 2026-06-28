@@ -61,15 +61,15 @@
     heroTitle1:{ar:'العلم النافع، والتطبيق الراسخ',en:'Beneficial Knowledge, Lasting Practice'},
     heroBody1:{ar:'منظومة تعليمية متكاملة تجمع بين أصالة العلوم الشرعية وجودة الإدارة الحديثة، لإعداد جيلٍ متمكّن.',en:'An integrated educational system uniting authentic scholarship with modern administration to prepare a capable generation.'},
     heroTitle2:{ar:'دبلومات متخصّصة بإشراف نخبة',en:'Specialized Diplomas, Elite Supervision'},
-    heroBody2:{ar:'برامج معتمدة في السنة النبوية واللغة العربية والتمريض، بمناهج عملية وكادر مؤهّل.',en:'Accredited programs in Prophetic Sunnah, Arabic, and Nursing — practical curricula and qualified staff.'},
+    heroBody2:{ar:'برامج معتمدة في السنة النبوية واللغة العربية والدراسات الإسلامية وحلقات تمكين، بمناهج عملية وكادر مؤهّل.',en:'Accredited programs in the Prophetic Sunnah, Arabic and Islamic studies, and Tamkeen circles — practical curricula and qualified staff.'},
     heroTitle3:{ar:'بوابتك الرقمية للتعلّم',en:'Your Digital Gateway to Learning'},
     heroBody3:{ar:'سجّل، تابع جداولك وواجباتك ودرجاتك، وتواصل مع معلّميك — كل ذلك من مكان واحد.',en:'Register, follow your schedule, assignments and grades, and reach your teachers — all in one place.'},
     ctaRegister:{ar:'سجّل الآن',en:'Register Now'},
     ctaExplore:{ar:'استكشف الدبلومات',en:'Explore Diplomas'},
-    bannerText:{ar:'التسجيل مفتوح للفصل الدراسي الجديد  •  دبلوم السنة النبوية  •  دبلوم اللغة العربية  •  دبلوم التمريض  •  مقاعد محدودة',en:'Registration open for the new term  •  Prophetic Sunnah Diploma  •  Arabic Language Diploma  •  Nursing Diploma  •  Limited seats'},
+    bannerText:{ar:'التسجيل مفتوح للفصل الدراسي الجديد  •  دبلوم السنة النبوية والدراسات الإسلامية  •  دبلوم اللغة العربية والدراسات الإسلامية  •  حلقات تمكين  •  مقاعد محدودة',en:'Registration open for the new term  •  Prophetic Sunnah & Islamic Studies  •  Arabic Language & Islamic Studies  •  Tamkeen Circles  •  Limited seats'},
     // content section
     whyTitle:{ar:'لماذا مركز تمكين؟',en:'Why Tamkeen Center?'},
-    whySub:{ar:'بيئة تعليمية متكاملة تُعنى بالطالب من أول يوم حتى التخرّج',en:'A complete environment caring for the student from day one to graduation'},
+    whySub:{ar:'مركز تمكين بيئة تعليمية تُعنى بتقديم العلوم الإسلامية بطرق ميسّرة تجمع بين الأصالة والمعاصرة',en:'Tamkeen Center is a learning environment offering the Islamic sciences in accessible ways that blend authenticity with modernity'},
     galleryTitle:{ar:'من مركز تمكين',en:'From Tamkeen Center'},
     gallerySub:{ar:'لمحات من أنشطة المركز وفعالياته ولقاءاته العلمية',en:'Glimpses of our activities, events and academic gatherings'},
     watchVideo:{ar:'تعرّف على المركز',en:'Get to know the center'},
@@ -77,7 +77,7 @@
     statTeachers:{ar:'معلم ومعلمة',en:'Instructors'},
     statPrograms:{ar:'برامج معتمدة',en:'Accredited Programs'},
     statYears:{ar:'سنوات من العطاء',en:'Years of Service'},
-    feat1T:{ar:'مناهج معتمدة',en:'Accredited Curricula'},
+    feat1T:{ar:'برامج معتمدة',en:'Accredited Programs'},
     feat1B:{ar:'برامج مبنية على معايير علمية دقيقة ومراجعة من متخصصين.',en:'Programs built on rigorous academic standards, reviewed by specialists.'},
     feat2T:{ar:'متابعة رقمية',en:'Digital Follow-up'},
     feat2B:{ar:'جداول وواجبات ودرجات وإشعارات في منصة واحدة سهلة.',en:'Schedules, assignments, grades and alerts in one simple platform.'},
@@ -87,13 +87,13 @@
     feat4B:{ar:'تقدير للسلوك والانضباط ودعم مستمر لكل طالب.',en:'Recognition of conduct and discipline with continuous support.'},
     // about page
     aboutTitle:{ar:'عن مركز تمكين',en:'About Tamkeen Center'},
-    aboutLead:{ar:'مركز تعليمي يسعى إلى إعداد جيلٍ متمكّن علمياً وعملياً، بالجمع بين أصالة المعرفة وحداثة الأداة.',en:'A learning center dedicated to preparing a generation empowered in knowledge and practice — uniting authentic learning with modern tools.'},
+    aboutLead:{ar:'بيئة تعليمية تعنى بتقديم العلوم الإسلامية بطرق ميسرة تجمع بين الأصالة والمعاصرة.',en:'An educational environment dedicated to teaching the Islamic sciences in accessible ways that blend authenticity with modernity.'},
     visionT:{ar:'رؤيتنا',en:'Our Vision'},
-    visionB:{ar:'أن نكون مرجعاً رائداً في التعليم المتخصّص، نُخرّج كفاءات تخدم مجتمعها بعلمٍ وأمانة.',en:'To be a leading reference in specialized education, graduating talents that serve society with knowledge and integrity.'},
+    visionB:{ar:'الريادة في تقديم البرامج التعليمية، وبناء جيل واعٍ بالعلم الشرعي، فاعل في مجتمعه، معتزّ بدينه وقيمه.',en:'Leadership in delivering educational programs, and building a generation aware of Islamic knowledge, active in its society and proud of its faith and values.'},
     missionT:{ar:'رسالتنا',en:'Our Mission'},
-    missionB:{ar:'تقديم برامج تعليمية معتمدة، ببيئة محفّزة وكادرٍ مؤهّل وأدوات رقمية تواكب العصر.',en:'To deliver accredited programs in an inspiring environment with qualified staff and modern digital tools.'},
+    missionB:{ar:'تقديم برامج علمية إسلامية منهجية، تقوم على التأصيل العلمي والوسطية، وتسهم في إعداد كوادر علمية مؤهّلة، وخدمة المجتمع النيجيري عبر نشر العلم الصحيح وترسيخ القيم.',en:'To deliver methodical Islamic academic programs grounded in scholarly rooting and moderation, contributing to preparing qualified scholars and serving Nigerian society by spreading sound knowledge and instilling values.'},
     valuesT:{ar:'قيمنا',en:'Our Values'},
-    val1:{ar:'الإتقان',en:'Mastery'}, val2:{ar:'الأمانة',en:'Integrity'}, val3:{ar:'الانضباط',en:'Discipline'}, val4:{ar:'الإحسان',en:'Excellence'},
+    val1:{ar:'الإتقان',en:'Mastery'}, val2:{ar:'الأصالة',en:'Authenticity'}, val3:{ar:'المعاصرة',en:'Modernity'}, val4:{ar:'الانضباط',en:'Discipline'},
     // management/leadership page
     mgmtTitle:{ar:'إدارة المركز',en:'Center Leadership'},
     mgmtSub:{ar:'فريقٌ قياديٌّ متميّز يقود رحلة التطوير والنمو',en:'A distinguished leadership team driving development and growth'},
@@ -118,7 +118,7 @@
     dipDays:{ar:'أيام الدراسة',en:'Study Days'},
     applyNow:{ar:'قدّم طلبك',en:'Apply Now'},
     // footer
-    footerAbout:{ar:'مركز تعليمي معتمد يقدّم برامج متخصصة في العلوم الشرعية واللغة العربية والتمريض.',en:'An accredited center offering specialized programs in Islamic studies, Arabic and nursing.'},
+    footerAbout:{ar:'مركز تعليمي معتمد يقدّم برامج متخصصة في السنة النبوية والدراسات الإسلامية واللغة العربية.',en:'An accredited center offering specialized programs in the Prophetic Sunnah, Islamic studies and the Arabic language.'},
     quickLinks:{ar:'روابط سريعة',en:'Quick Links'},
     contact:{ar:'تواصل معنا',en:'Contact'},
     rights:{ar:'جميع الحقوق محفوظة لمركز تمكين',en:'All rights reserved — Tamkeen Center'},
@@ -423,7 +423,7 @@
       {accessKey:'T101', password:'1234', name:'أ. منى السالم', role:'teacher', specializations:['اللغة العربية','النحو'], phone:'0500000011', email:'mona@tamkeen.edu', img:null},
       {accessKey:'S100', password:'1234', name:'محمد العمري', role:'student', academicYear:'دبلوم السنة النبوية — السنة الأولى', phone:'0500000020', email:'m.alamri@mail.com', img:null},
       {accessKey:'S101', password:'1234', name:'سارة القحطاني', role:'student', academicYear:'دبلوم اللغة العربية — السنة الأولى', phone:'0500000021', email:'sara.q@mail.com', img:null},
-      {accessKey:'S102', password:'1234', name:'عبدالله الشهري', role:'student', academicYear:'دبلوم التمريض — السنة الثانية', phone:'0500000022', email:'a.alshehri@mail.com', img:null},
+      {accessKey:'S102', password:'1234', name:'عبدالله الشهري', role:'student', academicYear:'دبلوم السنة النبوية — السنة الثانية', phone:'0500000022', email:'a.alshehri@mail.com', img:null},
     ],
     delegations: [
       {id:'d1', teacherId:'T100', type:'subject', title:'تدريس مادة الفقه', description:'متابعة طلاب السنة الأولى في مادة الفقه وأصوله.', subjectName:'الفقه', className:'دبلوم السنة النبوية', studentIds:['S100','S101'], status:'active', assignedBy:'K100', assignedAt:daysAgo(20)},
@@ -442,25 +442,34 @@
   // public content (bilingual)
   const diplomas = [
     { id:'sunnah', icon:'scroll', color:'#8C6F47',
-      name:{ar:'دبلوم السنة النبوية',en:'Prophetic Sunnah Diploma'},
+      name:{ar:'دبلوم السنة النبوية والدراسات الإسلامية',en:'Prophetic Sunnah & Islamic Studies Diploma'},
       desc:{ar:'دراسة متعمّقة في علوم الحديث والسيرة والفقه، بإشراف نخبة من المتخصصين.',en:'In-depth study of hadith sciences, the Prophetic biography and fiqh, supervised by specialists.'},
-      duration:{ar:'سنتان',en:'2 Years'}, credits:{ar:'72 ساعة',en:'72 hours'}, days:{ar:'الأحد · الثلاثاء · الخميس',en:'Sun · Tue · Thu'} },
+      duration:{ar:'سنتان',en:'2 Years'}, credits:{ar:'72 ساعة',en:'72 hours'}, days:{ar:'الإثنين · الثلاثاء · الأربعاء',en:'Mon · Tue · Wed'} },
     { id:'arabic', icon:'languages', color:'#B68A3E',
-      name:{ar:'دبلوم اللغة العربية',en:'Arabic Language Diploma'},
-      desc:{ar:'تمكين الطالب من النحو والصرف والبلاغة والأدب، نظرياً وتطبيقياً.',en:'Mastering grammar, morphology, rhetoric and literature — theory and practice.'},
-      duration:{ar:'سنتان',en:'2 Years'}, credits:{ar:'64 ساعة',en:'64 hours'}, days:{ar:'الاثنين · الأربعاء',en:'Mon · Wed'} },
-    { id:'nursing', icon:'heart', color:'#A98F66',
-      name:{ar:'دبلوم التمريض',en:'Nursing Diploma'},
-      desc:{ar:'إعداد كوادر تمريضية مؤهّلة بمهارات سريرية عملية وتدريب ميداني.',en:'Preparing qualified nursing staff with practical clinical skills and field training.'},
-      duration:{ar:'سنتان ونصف',en:'2.5 Years'}, credits:{ar:'90 ساعة',en:'90 hours'}, days:{ar:'الجمعة · الأحد',en:'Fri · Sun'} },
+      name:{ar:'دبلوم اللغة العربية والدراسات الإسلامية',en:'Arabic Language & Islamic Studies Diploma'},
+      desc:{ar:'تمكين الطالب من النحو والصرف والبلاغة والأدب، ومن التحدّث باللغة العربية نظرياً وتطبيقياً.',en:'Mastering grammar, morphology, rhetoric, literature and Arabic speaking — theory and practice.'},
+      duration:{ar:'سنتان',en:'2 Years'}, credits:{ar:'64 ساعة',en:'64 hours'}, days:{ar:'منتظم: الإثنين–الأربعاء · جزئي: الجمعة–الأحد',en:'Full: Mon–Wed · Part: Fri–Sun'} },
+    { id:'halaqat', icon:'users', color:'#A98F66',
+      name:{ar:'حلقات تمكين',en:'Tamkeen Circles'},
+      desc:{ar:'حلقات علمية أسبوعية في العلوم الشرعية واللغة، مفتوحة لطلاب العلم من كل المستويات.',en:'Weekly academic circles in Islamic and language sciences, open to learners of all levels.'},
+      duration:{ar:'مستمرة',en:'Ongoing'}, credits:{ar:'حلقات أسبوعية',en:'Weekly circles'}, days:{ar:'السبت – الأربعاء',en:'Sat – Wed'} },
+    { id:'hifz', icon:'book', color:'#6B5435',
+      name:{ar:'برنامج تمكين لحفظ السنة النبوية',en:'Tamkeen Sunnah Memorization Program'},
+      desc:{ar:'برنامج مكثّف لحفظ وضبط أحاديث السنة النبوية مع العناية بالفهم والإسناد.',en:'An intensive program to memorize and master Prophetic hadith with care for understanding and chains.'},
+      duration:{ar:'برنامج سنوي',en:'Annual'}, credits:{ar:'دورة مكثّفة',en:'Intensive'}, days:{ar:'يُقام سنوياً',en:'Held annually'} },
   ];
 
   const leadership = [
     { group:'board',
       title:{ar:'مجلس الإدارة',en:'Board of Directors'},
       members:[
-        { img:'assets/man-img1.jpg', woman:false, name:{ar:'الشيخ محمد إدريس البكر',en:'Sheikh Mohammed Idris Al-Bakr'}, position:{ar:'رئيس مجلس الإدارة',en:'Chairman of the Board'}, specialization:{ar:'إدارة الأعمال',en:'Business Administration'}, email:'M.albakur.25@gmail.com', phone:'+966 582 613 355 · +234 902 207 2006' },
-        { img:'assets/man-img2.jpg', woman:false, name:{ar:'الشيخ علي عباس برناوي',en:'Sheikh Ali Abbas Barnawi'}, position:{ar:'نائب رئيس مجلس الإدارة',en:'Vice Chairman'}, specialization:{ar:'التربية والتعليم',en:'Education'}, email:'Ali-abbas7@hotmail.com', phone:'+234 802 661 2468' },
+        { img:'assets/man-img1.jpg', woman:false, name:{ar:'محمد إدريس البكر',en:'Mohammed Idris Al-Bakr'}, position:{ar:'رئيس مجلس الإدارة',en:'Chairman of the Board'}, specialization:{ar:'إدارة الأعمال',en:'Business Administration'}, email:'M.albakur.25@gmail.com', phone:'+966 582 613 355 · +234 902 207 2006' },
+        { img:'assets/man-img2.jpg', woman:false, name:{ar:'علي عباس برناوي',en:'Ali Abbas Barnawi'}, position:{ar:'نائب رئيس مجلس الإدارة',en:'Vice Chairman'}, specialization:{ar:'التربية والتعليم',en:'Education'}, email:'Ali-abbas7@hotmail.com', phone:'+234 802 661 2468' },
+        { img:'assets/man-img7.png', woman:false, name:{ar:'أ.د علي هارون محمد',en:'Prof. Dr. Ali Haroun Mohammed'}, position:{ar:'عضو مجلس الإدارة',en:'Board Member'}, email:'ahmuhammad23@gmail.com', phone:'+234 802 373 2824' },
+        { img:'assets/man-img3.jpg', woman:false, name:{ar:'عمار أبو بكر',en:'Ammar Abu Bakr'}, position:{ar:'عضو مجلس الإدارة',en:'Board Member'}, specialization:{ar:'إدارة الأعمال',en:'Business Administration'}, email:'abuhushaim@gmail.com', phone:'+234 806 941 7376' },
+        { img:null, woman:false, name:{ar:'د. مدثر آدم شعيب',en:'Dr. Mudathir Adam Shuaib'}, position:{ar:'عضو مجلس الإدارة',en:'Board Member'} },
+        { img:null, woman:false, name:{ar:'محمد بابكر عيسى',en:'Mohammed Babiker Issa'}, position:{ar:'عضو مجلس الإدارة',en:'Board Member'} },
+        { img:'assets/man-img4.jpg', woman:true, name:{ar:'د. أسرار بشير عثمان',en:'Dr. Asrar Bashir Othman'}, position:{ar:'عضو مجلس الإدارة',en:'Board Member'}, specialization:{ar:'المالية والمحاسبة',en:'Finance & Accounting'}, email:'Srosh22bash@gmail.com', phone:'+234 902 165 5552' },
       ] },
     { group:'executive',
       title:{ar:'الفريق التنفيذي',en:'Executive Team'},
@@ -561,6 +570,11 @@
     calculator:<React.Fragment><rect x="4" y="2" width="16" height="20" rx="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></React.Fragment>,
   };
   // alias mapping for announcement templates
+  I.play = <polygon points="6 4 20 12 6 20" fill="currentColor" stroke="none" />;
+  I.pause = <React.Fragment><rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" /><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none" /></React.Fragment>;
+  I.volume2 = <React.Fragment><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><path d="M15.54 8.46a5 5 0 0 1 0 7.07" /><path d="M19.07 4.93a10 10 0 0 1 0 14.14" /></React.Fragment>;
+  I.volumeX = <React.Fragment><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" /><line x1="22" y1="9" x2="16" y2="15" /><line x1="16" y1="9" x2="22" y2="15" /></React.Fragment>;
+  I.maximize = <React.Fragment><path d="M8 3H5a2 2 0 0 0-2 2v3" /><path d="M16 3h3a2 2 0 0 1 2 2v3" /><path d="M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M16 21h3a2 2 0 0 0 2-2v-3" /></React.Fragment>;
   I.general = I.info; I.exam = I.book; I.holiday = I.calDays; I.event = I.party; I.urgent = I.alert;
 
   function Icon({ name, size=18, color='currentColor', sw=1.8, style, className }) {

@@ -52,6 +52,7 @@
     .tc-mobile-nav { display: block !important; }
     .tc-hero-grid { grid-template-columns: 1fr !important; }
     .tc-feat-grid { grid-template-columns: 1fr !important; }
+    .tc-diploma-grid { grid-template-columns: 1fr !important; }
     .tc-form-grid { grid-template-columns: 1fr !important; }
     .tc-split { flex-direction: column !important; }
     .tc-split-aside { width: 100% !important; }
@@ -59,6 +60,14 @@
   @media (max-width: 560px) {
     .tc-stats-grid { grid-template-columns: 1fr 1fr !important; }
   }
+
+  /* video seek bar */
+  input.tc-seek { -webkit-appearance: none; appearance: none; height: 6px; border-radius: 999px; outline: none; cursor: pointer; background: rgba(255,255,255,.28); }
+  input.tc-seek::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: transparent; }
+  input.tc-seek::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 14px; height: 14px; margin-top: -4px; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); cursor: pointer; }
+  input.tc-seek::-moz-range-track { height: 6px; border-radius: 999px; background: rgba(255,255,255,.28); }
+  input.tc-seek::-moz-range-progress { height: 6px; border-radius: 999px; background: #E9D9B6; }
+  input.tc-seek::-moz-range-thumb { width: 14px; height: 14px; border: none; border-radius: 50%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.45); cursor: pointer; }
 
   /* dashboard shell — mobile breathing room */
   @media (max-width: 640px) {

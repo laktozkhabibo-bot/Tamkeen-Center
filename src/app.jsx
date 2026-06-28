@@ -11,6 +11,9 @@
   const TCData = window.TCData;
 
   const LANG_KEY = 'tamkeen_lang_v1';
+  // دليل المستند الأصلي (يُلتقط مرة واحدة عند التحميل) — نبني عليه المسارات
+  // حتى تبقى روابط الأصول (الصور/السكربت) صحيحة في أي بيئة.
+  const ROUTE_BASE = window.location.pathname.replace(/[^/]*$/, '') || '/';
 
   function Splash({ text }) {
     return (
@@ -28,8 +31,24 @@
     const [user, setUser] = useState(null);
     const [booting, setBooting] = useState(true);
     const [busy, setBusy] = useState(false);
-    const [view, setView] = useState('public'); // public | auth | dashboard
-    const [publicPage, setPublicPage] = useState('home');
+    // ---- التوجيه عبر المسار: لكل قسم رابط مستقل
+    //  /  · /about · /leadership · /diplomas · /login
+    //  /mng  · /teacher · /student  (+ تبويب داخلي: /mng/teachers إلخ)
+    const parsePath = (pathname, search) => {
+      let rel = String(pathname || '/');
+      rel = rel.startsWith(ROUTE_BASE) ? rel.slice(ROUTE_BASE.length) : rel.replace(/^\/+/, '');
+      const seg = rel.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+      const a = (seg[0] || '').toLowerCase();
+      const tab = new URLSearchParams(search || '').get('tab');
+      if (a === 'login') return { view: 'auth', publicPage: 'home', dashTab: null, dashBase: null };
+      if (a === 'mng' || a === 'teacher' || a === 'student') return { view: 'dashboard', publicPage: 'home', dashTab: tab || null, dashBase: a };
+      const pages = ['about', 'leadership', 'diplomas'];
+      return { view: 'public', publicPage: pages.includes(a) ? a : 'home', dashTab: null, dashBase: null };
+    };
+    const r0 = parsePath(window.location.pathname, window.location.search);
+    const [view, setView] = useState(r0.view); // public | auth | dashboard
+    const [publicPage, setPublicPage] = useState(r0.publicPage);
+    const [dashTab, setDashTab] = useState(r0.dashTab);
     const [authStart, setAuthStart] = useState('initial');
 
     const t = L(lang);
@@ -45,7 +64,39 @@
     // عند الانتقال بين الصفحات/الأقسام: ابدأ من أعلى الصفحة الجديدة دائمًا
     useEffect(() => {
       window.scrollTo(0, 0);
-    }, [view, publicPage]);
+    }, [view, publicPage, dashTab]);
+
+    // مزامنة عنوان المتصفح مع القسم الحالي (لكل قسم رابط مستقل)
+    useEffect(() => {
+      if (booting) return; // لا نغيّر الرابط قبل اكتمال استعادة الجلسة (تفادي ارتداد العنوان)
+      let sub = '';
+      if (view === 'auth') sub = 'login';
+      else if (view === 'dashboard' && user) {
+        const b = user.role === 'student' ? 'student' : user.role === 'teacher' ? 'teacher' : 'mng';
+        sub = b + (dashTab ? ('?tab=' + encodeURIComponent(dashTab)) : '');
+      } else {
+        sub = publicPage === 'home' ? '' : publicPage;
+      }
+      const path = ROUTE_BASE + sub;
+      const cur = window.location.pathname + window.location.search;
+      if (cur !== path) window.history.pushState({}, '', path);
+    }, [view, publicPage, dashTab, user, booting]);
+
+    // أزرار رجوع/تقدّم في المتصفح
+    useEffect(() => {
+      const onPop = () => {
+        const r = parsePath(window.location.pathname, window.location.search);
+        if (r.dashBase) {
+          if (user) { setView('dashboard'); setDashTab(r.dashTab); }
+          else { setView('public'); setPublicPage('home'); }
+          return;
+        }
+        if (r.view === 'auth') { setView('auth'); return; }
+        setView('public'); setPublicPage(r.publicPage); setDashTab(null);
+      };
+      window.addEventListener('popstate', onPop);
+      return () => window.removeEventListener('popstate', onPop);
+    }, [user]);
 
     // استعادة الجلسة عند الإقلاع
     useEffect(() => {
@@ -91,7 +142,14 @@
     //  نحدّث الحالة محليًا مباشرة ثم نكتب في الخلفية. لا انتظار للشبكة.
     // ============================================================
     const patchDb = (fn) => setDb((prev) => (prev ? fn(prev) : prev));
-    const tmpId = () => 'tmp_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    // معرّف حقيقي (UUID) يُولَّد في المتصفح ويُرسل للخادم كما هو — لا معرّفات مؤقتة.
+    // بهذا يتطابق معرّف الواجهة مع معرّف قاعدة البيانات منذ اللحظة الأولى، فلا تفشل
+    // عمليات الحذف/الإسناد اللاحقة (كانت ترسل "tmp_..." لعمود uuid وتسبّب الخطأ).
+    const newId = () => (window.crypto && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+          const r = Math.random() * 16 | 0; const v = c === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16);
+        });
 
     // مزامنة صامتة مؤجّلة: تستبدل المعرّفات المؤقتة بمعرّفات الخادم الحقيقية
     // دون أي وميض مرئي (الواجهة محدّثة مسبقًا تفاؤليًا). تُجمَّع عمليات متتالية.
@@ -101,21 +159,29 @@
       reconcileTimer.current = setTimeout(() => { reload(); }, 900);
     };
 
-    // تنفيذ الكتابة في الخلفية؛ عند الخطأ فقط نُعيد المزامنة الكاملة لاستعادة الحالة
-    const bg = (fn, opts) => {
-      (async () => {
-        try {
-          const r = await fn();
-          if (r && r.error) { alert(friendlyErr(r.error)); reload(); return; }
-          if (opts && opts.reconcile) reconcile();
-        } catch (e) { alert(friendlyErr(e)); reload(); }
-      })();
+    // طابور كتابة متسلسل: ينفّذ عمليات الخادم بالترتيب نفسه الذي نقر به المستخدم.
+    // يضمن أن يُحفظ المقرر (مثلاً) قبل إسناد معلّم له، فلا تقع مخالفة مفتاح أجنبي.
+    const writeChain = React.useRef(Promise.resolve());
+    const enqueue = (job) => {
+      const p = writeChain.current.then(() => job());
+      writeChain.current = p.catch(() => {});
+      return p;
     };
+
+    // تنفيذ الكتابة في الخلفية (ضمن الطابور)؛ عند الخطأ نُعيد المزامنة لاستعادة الحالة
+    const bg = (fn, opts) => enqueue(async () => {
+      try {
+        const r = await fn();
+        if (r && r.error) { alert(friendlyErr(r.error)); reload(); return; }
+        if (opts && opts.reconcile) reconcile();
+      } catch (e) { alert(friendlyErr(e)); reload(); }
+    });
+
+    // إشعار صامت: لا يُنبّه ولا يُعيد المزامنة عند الفشل (الإسناد نفسه هو المهم)
+    const notify = (fn) => enqueue(async () => { try { await fn(); } catch (e) { console.warn('notify', e); } });
 
     // تحديث/حذف متفائل: تعديل محلي فوري + كتابة بالخلفية (لا إعادة تحميل عند النجاح)
     const optMut = (patch, write) => (...a) => { patch(...a); bg(() => write(...a)); };
-    // إضافة متفائلة: صف محلي مؤقت فوري + كتابة بالخلفية + مزامنة صامتة للمعرّفات
-    const optIns = (patch, write) => (...a) => { patch(...a); bg(() => write(...a), { reconcile: true }); };
 
     // ---- تسجيل الدخول
     const handleLogin = async (accessKey, password, role) => {
@@ -134,7 +200,7 @@
     };
     const handleLogout = async () => {
       await TCData.signOut();
-      setUser(null); setDb(null); setView('public'); setPublicPage('home');
+      setUser(null); setDb(null); setView('public'); setPublicPage('home'); setDashTab(null);
     };
     const goHome = () => { setView('public'); setPublicPage('home'); };
     const handleRegister = () => { /* تسجيل الطلاب الذاتي: مرحلة لاحقة */ };
@@ -167,18 +233,22 @@
       },
 
       // الدرجات
-      addGrade: optIns(
-        (studentId, g, by) => patchDb((d) => ({ ...d, grades: [...d.grades, { id: tmpId(), studentId, subject: g.subject, score: g.score, maxScore: 100, notes: g.notes || '', createdBy: by || uid, createdAt: new Date().toISOString() }] })),
-        (studentId, g, by) => TCData.addGrade(studentId, g, by || uid)),
+      addGrade: (studentId, g, by) => {
+        const id = newId();
+        patchDb((d) => ({ ...d, grades: [...d.grades, { id, studentId, subject: g.subject, score: g.score, maxScore: 100, notes: g.notes || '', createdBy: by || uid, createdAt: new Date().toISOString() }] }));
+        bg(() => TCData.addGrade(studentId, g, by || uid, id), { reconcile: true });
+      },
       editGrade: optMut(
         (id, g) => patchDb((d) => ({ ...d, grades: d.grades.map((x) => x.id === id ? { ...x, subject: g.subject, score: g.score, notes: g.notes || '' } : x) })),
         (id, g) => TCData.editGrade(id, g)),
       deleteGrade: optMut(
         (id) => patchDb((d) => ({ ...d, grades: d.grades.filter((x) => x.id !== id) })),
         (id) => TCData.deleteGrade(id)),
-      assignHomework: optIns(
-        (studentId, hw, by) => patchDb((d) => ({ ...d, assignments: [...d.assignments, { id: tmpId(), studentId, title: hw.title, description: hw.description || '', dueDate: hw.dueDate || '', assignedBy: by || uid, createdAt: new Date().toISOString() }] })),
-        (studentId, hw, by) => TCData.assignHomework(studentId, hw, by || uid)),
+      assignHomework: (studentId, hw, by) => {
+        const id = newId();
+        patchDb((d) => ({ ...d, assignments: [...d.assignments, { id, studentId, title: hw.title, description: hw.description || '', dueDate: hw.dueDate || '', assignedBy: by || uid, createdAt: new Date().toISOString() }] }));
+        bg(() => TCData.assignHomework(studentId, hw, by || uid, id), { reconcile: true });
+      },
 
       // السلوك (تحديث متفائل لتفادي القفز أثناء الكتابة)
       updateBehavior: async (studentId, score) => {
@@ -198,6 +268,7 @@
           enrollments: d.enrollments.filter((e) => e.studentId !== accessKey),
           courseTeachers: d.courseTeachers.filter((ct) => ct.teacherId !== accessKey),
           teacherStudents: d.teacherStudents.filter((ts) => ts.teacherId !== accessKey && ts.studentId !== accessKey),
+          teacherSections: (d.teacherSections||[]).filter((x) => x.teacherId !== accessKey),
           grades: d.grades.filter((g) => g.studentId !== accessKey),
           assignments: d.assignments.filter((a) => a.studentId !== accessKey),
           courseGrades: d.courseGrades.filter((g) => g.studentId !== accessKey),
@@ -220,6 +291,10 @@
           if (f.email !== undefined) next.email = f.email;
           if (f.specializations !== undefined) next.specializations = f.specializations || [];
           if (f.img !== undefined) next.img = f.img;
+          if (f.diploma !== undefined) next.diploma = f.diploma || null;
+          if (f.attendanceGroup !== undefined) next.attendanceGroup = f.attendanceGroup || null;
+          if (f.section !== undefined) next.section = f.section || null;
+          if (f.academicYear !== undefined) next.academicYear = f.academicYear || null;
           return next;
         }) }));
         if (accessKey === uid) setUser((prev) => prev ? { ...prev, ...(f.name!=null?{name:f.name}:{}), ...(f.img!==undefined?{img:f.img}:{}) } : prev);
@@ -246,20 +321,28 @@
         (id) => TCData.removeDelegation(id)),
 
       // الجداول
-      addSchedule: optIns(
-        (s, by) => patchDb((d) => { const cols = s.columns.filter((c) => c.trim()); return { ...d, schedules: [...d.schedules, { id: tmpId(), title: s.name, type: s.type, columns: cols, rows: s.rows.map((r) => r.slice(0, cols.length)), createdBy: by || uid, createdAt: new Date().toISOString() }] }; }),
-        (s, by) => TCData.addSchedule(s, by || uid)),
+      addSchedule: (s, by) => {
+        const id = newId();
+        patchDb((d) => { const cols = s.columns.filter((c) => c.trim()); return { ...d, schedules: [...d.schedules, { id, title: s.name, type: s.type, columns: cols, rows: s.rows.map((r) => r.slice(0, cols.length)), createdBy: by || uid, createdAt: new Date().toISOString() }] }; });
+        bg(() => TCData.addSchedule(s, by || uid, id), { reconcile: true });
+      },
       deleteSchedule: async (id) => {
         const ok = await window.UI.confirm({ title: lang==='ar'?'حذف الجدول':'Delete schedule', message: lang === 'ar' ? 'هل تريد حذف هذا الجدول؟' : 'Delete this schedule?', confirmText: lang==='ar'?'حذف':'Delete', icon:'trash' });
         if (!ok) return;
         patchDb((d) => ({ ...d, schedules: d.schedules.filter((x) => x.id !== id) }));
         bg(() => TCData.deleteSchedule(id));
       },
+      updateSchedule: (id, s) => {
+        patchDb((d) => { const cols = s.columns.filter((c) => c.trim()); return { ...d, schedules: d.schedules.map((x) => x.id === id ? { ...x, title: s.name, type: s.type, columns: cols, rows: s.rows.map((r) => r.slice(0, cols.length)) } : x) }; });
+        bg(() => TCData.updateSchedule(id, s), { reconcile: true });
+      },
 
       // الإعلانات
-      createAnnouncement: optIns(
-        (a, by) => patchDb((d) => ({ ...d, announcements: [...d.announcements, { id: tmpId(), title: a.title, content: a.content, template: a.template, audience: a.audience || ['students', 'teachers', 'admins'], createdBy: by || uid, createdAt: new Date().toISOString() }] })),
-        (a, by) => TCData.createAnnouncement(a, by || uid)),
+      createAnnouncement: (a, by) => {
+        const id = newId();
+        patchDb((d) => ({ ...d, announcements: [...d.announcements, { id, title: a.title, content: a.content, template: a.template, audience: a.audience || ['students', 'teachers', 'admins'], createdBy: by || uid, createdAt: new Date().toISOString() }] }));
+        bg(() => TCData.createAnnouncement(a, by || uid, id), { reconcile: true });
+      },
       deleteAnnouncement: optMut(
         (id) => patchDb((d) => ({ ...d, announcements: d.announcements.filter((x) => x.id !== id) })),
         (id) => TCData.deleteAnnouncement(id)),
@@ -272,11 +355,13 @@
         patchDb((d) => ({ ...d, settings: { ...d.settings, [key]: value } }));
         bg(() => TCData.setSetting(key, value, uid));
       },
-      addCourse: optIns(
-        (c) => patchDb((d) => ({ ...d, courses: [...d.courses, { id: tmpId(), diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, fileData: c.fileData || null, fileName: c.fileName || null, createdBy: uid, createdAt: new Date().toISOString() }] })),
-        (c) => TCData.addCourse(c, uid)),
+      addCourse: (c) => {
+        const id = newId();
+        patchDb((d) => ({ ...d, courses: [...d.courses, { id, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, fileData: c.fileData || null, fileName: c.fileName || null, hasFile: !!c.fileName, createdBy: uid, createdAt: new Date().toISOString() }] }));
+        bg(() => TCData.addCourse(c, uid, id), { reconcile: true });
+      },
       editCourse: optMut(
-        (id, c) => patchDb((d) => ({ ...d, courses: d.courses.map((x) => x.id === id ? { ...x, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, fileData: c.fileData || null, fileName: c.fileName || null } : x) })),
+        (id, c) => patchDb((d) => ({ ...d, courses: d.courses.map((x) => x.id === id ? { ...x, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, ...(c.keepFile ? {} : { fileData: c.fileData || null, fileName: c.fileName || null, hasFile: !!c.fileName }) } : x) })),
         (id, c) => TCData.editCourse(id, c)),
       deleteCourse: async (id) => {
         const ok = await window.UI.confirm({ title: lang==='ar'?'حذف المقرر':'Delete course', message: lang==='ar'?'سيُحذف المقرر وكل تسجيلاته ودرجاته. هل تريد المتابعة؟':'The course and all its enrollments and grades will be deleted.', confirmText: lang==='ar'?'حذف':'Delete', icon:'trash' });
@@ -290,21 +375,40 @@
         }));
         bg(() => TCData.deleteCourse(id), { reconcile: true });
       },
-      assignCourseTeacher: optIns(
-        (cid, tid) => patchDb((d) => ({ ...d, courseTeachers: [...d.courseTeachers, { id: tmpId(), courseId: cid, teacherId: tid }] })),
-        (cid, tid) => TCData.assignCourseTeacher(cid, tid, uid)),
+      assignCourseTeacher: (cid, tid) => {
+        const id = newId();
+        patchDb((d) => ({ ...d, courseTeachers: [...d.courseTeachers, { id, courseId: cid, teacherId: tid }] }));
+        bg(() => TCData.assignCourseTeacher(cid, tid, uid, id), { reconcile: true });
+        const course = db && db.courses.find((c) => c.id === cid);
+        notify(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مقرر إليك: ' : 'Course assigned to you: ') + (course ? course.name : ''), uid));
+      },
       unassignCourseTeacher: optMut(
         (id) => patchDb((d) => ({ ...d, courseTeachers: d.courseTeachers.filter((x) => x.id !== id) })),
         (id) => TCData.unassignCourseTeacher(id)),
-      enrollStudent: optIns(
-        (cid, sid) => patchDb((d) => ({ ...d, enrollments: [...d.enrollments, { id: tmpId(), courseId: cid, studentId: sid }] })),
-        (cid, sid) => TCData.enrollStudent(cid, sid, uid)),
+      enrollStudent: (cid, sid) => {
+        const id = newId();
+        patchDb((d) => ({ ...d, enrollments: [...d.enrollments, { id, courseId: cid, studentId: sid }] }));
+        bg(() => TCData.enrollStudent(cid, sid, uid, id), { reconcile: true });
+      },
       unenroll: optMut(
         (id) => patchDb((d) => ({ ...d, enrollments: d.enrollments.filter((x) => x.id !== id) })),
         (id) => TCData.unenroll(id)),
-      assignTeacherStudent: optIns(
-        (tid, sid) => patchDb((d) => ({ ...d, teacherStudents: [...d.teacherStudents, { id: tmpId(), teacherId: tid, studentId: sid }] })),
-        (tid, sid) => TCData.assignTeacherStudent(tid, sid, uid)),
+      assignTeacherStudent: (tid, sid) => {
+        const id = newId();
+        patchDb((d) => ({ ...d, teacherStudents: [...d.teacherStudents, { id, teacherId: tid, studentId: sid }] }));
+        bg(() => TCData.assignTeacherStudent(tid, sid, uid, id), { reconcile: true });
+      },
+      // إسناد مجموعة/فصل كامل للمعلم + إشعار في صندوق وارده
+      assignSection: (tid, section) => {
+        const id = newId();
+        patchDb((d) => ({ ...d, teacherSections: [...(d.teacherSections||[]), { id, teacherId: tid, section }] }));
+        bg(() => TCData.assignSection(tid, section, uid, id), { reconcile: true });
+        const label = window.TCX.sectionLabel(section, lang);
+        notify(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مجموعة إليك: ' : 'Section assigned to you: ') + label, uid));
+      },
+      unassignSection: optMut(
+        (id) => patchDb((d) => ({ ...d, teacherSections: (d.teacherSections||[]).filter((x) => x.id !== id) })),
+        (id) => TCData.unassignSection(id)),
       unassignTeacherStudent: optMut(
         (id) => patchDb((d) => ({ ...d, teacherStudents: d.teacherStudents.filter((x) => x.id !== id) })),
         (id) => TCData.unassignTeacherStudent(id)),
@@ -312,13 +416,15 @@
         (sid, status) => patchDb((d) => ({ ...d, users: d.users.map((u) => u.accessKey === sid ? { ...u, status } : u) })),
         (sid, status) => TCData.setStudentStatus(sid, status)),
       saveCourseGrade: (sid, cid, g, status) => {
+        const existing = db && db.courseGrades.find((x) => x.studentId === sid && x.courseId === cid);
+        const rowId = existing ? existing.id : newId();
         patchDb((d) => {
-          const exists = d.courseGrades.find((x) => x.studentId === sid && x.courseId === cid);
           const fields = { participation: g.participation || 0, midterm: g.midterm || 0, final: g.final || 0, status: status || 'draft', updatedAt: new Date().toISOString() };
-          if (exists) return { ...d, courseGrades: d.courseGrades.map((x) => (x.studentId === sid && x.courseId === cid) ? { ...x, ...fields } : x) };
-          return { ...d, courseGrades: [...d.courseGrades, { id: tmpId(), studentId: sid, courseId: cid, ...fields, createdBy: uid, approvedBy: null, createdAt: new Date().toISOString() }] };
+          const has = d.courseGrades.find((x) => x.studentId === sid && x.courseId === cid);
+          if (has) return { ...d, courseGrades: d.courseGrades.map((x) => (x.studentId === sid && x.courseId === cid) ? { ...x, ...fields } : x) };
+          return { ...d, courseGrades: [...d.courseGrades, { id: rowId, studentId: sid, courseId: cid, ...fields, createdBy: uid, approvedBy: null, createdAt: new Date().toISOString() }] };
         });
-        bg(() => TCData.saveCourseGrade(sid, cid, g, uid, status), { reconcile: true });
+        bg(() => TCData.saveCourseGrade(sid, cid, g, uid, status, rowId), { reconcile: true });
       },
       approveCourseGrade: optMut(
         (id) => patchDb((d) => ({ ...d, courseGrades: d.courseGrades.map((x) => x.id === id ? { ...x, status: 'approved', approvedBy: uid } : x) })),
@@ -333,7 +439,7 @@
 
     const renderDashboard = () => {
       if (!user || !db) return <Splash text={lang === 'ar' ? 'جارٍ التحميل…' : 'Loading…'} />;
-      const common = { user, lang, setLang, db, actions, onLogout: handleLogout, onHome: goHome };
+      const common = { user, lang, setLang, db, actions, onLogout: handleLogout, onHome: goHome, routeTab: dashTab, onTab: setDashTab };
       if (user.role === 'student') return <StudentDashboard {...common} />;
       if (user.role === 'teacher') return <TeacherDashboard {...common} />;
       return <ManagementDashboard {...common} />;

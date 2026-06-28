@@ -164,7 +164,7 @@
               <Field label={t('programName')} required>
                 <Select value={d.program} onChange={e=>set('program',e.target.value)}><option value="">{t('chooseOpt')}</option>{diplomas.map(dp=><option key={dp.id} value={dp.id}>{dp.name[lang]}</option>)}</Select>
               </Field>
-              <Field label={t('studyDays')}><Select value={d.study_days} onChange={e=>set('study_days',e.target.value)}><option value="">{t('chooseOpt')}</option>{(lang==='ar'?['الأحد - الثلاثاء - الخميس','الاثنين - الأربعاء','الجمعة - الأحد']:['Sun-Tue-Thu','Mon-Wed','Fri-Sun']).map((x,i)=><option key={i} value={x}>{x}</option>)}</Select></Field>
+              <Field label={t('studyDays')}><Select value={d.study_days} onChange={e=>set('study_days',e.target.value)}><option value="">{t('chooseOpt')}</option>{(lang==='ar'?['الاثنين - الأربعاء','الجمعة - الأحد']:['Mon-Wed','Fri-Sun']).map((x,i)=><option key={i} value={x}>{x}</option>)}</Select></Field>
               <div style={{ gridColumn:'1 / -1' }}>
                 <Field label={t('howHeard')}><Select value={d.how_heard} onChange={e=>set('how_heard',e.target.value)}><option value="">{t('chooseOpt')}</option>{(lang==='ar'?['عبر الأصدقاء','وسائل التواصل الاجتماعي','موقع المركز','أخرى']:['Friends','Social media','Website','Other']).map((x,i)=><option key={i} value={x}>{x}</option>)}</Select></Field>
               </div>
