@@ -44,6 +44,11 @@
 
   .tc-row-hover:hover { filter: brightness(0.98); }
 
+  /* ---- HERO scrim: directional sand wash on large screens, even dark wash on phones ---- */
+  .tc-hero-scrim { position: absolute; inset: 0; }
+  html[dir="rtl"] .tc-hero-scrim { background: linear-gradient(to left,  rgba(120,90,46,.97) 0%, rgba(120,90,46,.9) 22%, rgba(120,90,46,.62) 48%, rgba(120,90,46,.26) 72%, rgba(120,90,46,0) 100%); }
+  html[dir="ltr"] .tc-hero-scrim { background: linear-gradient(to right, rgba(120,90,46,.97) 0%, rgba(120,90,46,.9) 22%, rgba(120,90,46,.62) 48%, rgba(120,90,46,.26) 72%, rgba(120,90,46,0) 100%); }
+
   /* responsive */
   .tc-mobile-nav { display: none; }
   @media (max-width: 860px) {
@@ -56,9 +61,20 @@
     .tc-form-grid { grid-template-columns: 1fr !important; }
     .tc-split { flex-direction: column !important; }
     .tc-split-aside { width: 100% !important; }
+    /* phone hero: shorter, and an even vertical wash so the headline reads over any photo */
+    .tc-hero { min-height: clamp(460px, 74vh, 620px) !important; }
+    .tc-hero-scrim,
+    html[dir="rtl"] .tc-hero-scrim,
+    html[dir="ltr"] .tc-hero-scrim {
+      background: linear-gradient(to top, rgba(34,24,9,.93) 0%, rgba(48,35,15,.82) 34%, rgba(70,52,24,.6) 64%, rgba(80,60,30,.42) 100%) !important;
+    }
   }
   @media (max-width: 560px) {
     .tc-stats-grid { grid-template-columns: 1fr 1fr !important; }
+    .tc-reg-stats { grid-template-columns: 1fr 1fr !important; }
+  }
+  @media (max-width: 420px) {
+    .tc-hero { min-height: clamp(440px, 72vh, 560px) !important; }
   }
 
   /* video seek bar */
@@ -87,6 +103,7 @@
 <script src="src/supabase.js"></script>
 <script src="src/data.js"></script>
 <script src="src/curriculum.js"></script>
+<script src="src/registrar.js"></script>
 <script type="text/babel" src="src/core.jsx"></script>
 <script type="text/babel" src="src/ui.jsx"></script>
 <script type="text/babel" src="src/public.jsx"></script>
@@ -98,6 +115,9 @@
 <script type="text/babel" src="src/mgmt-tools.jsx"></script>
 <script type="text/babel" src="src/mgmt-curriculum.jsx"></script>
 <script type="text/babel" src="src/management.jsx"></script>
+<script type="text/babel" src="src/registrar-core.jsx"></script>
+<script type="text/babel" src="src/registrar-more.jsx"></script>
+<script type="text/babel" src="src/registrar.jsx"></script>
 <script type="text/babel" src="src/app.jsx"></script>
 </body>
 </html>

@@ -4,8 +4,44 @@
    ========================================================================= */
 (function () {
   const { theme, L, Icon, diplomas } = window.TC;
-  const { Logo, Btn, Card, Field, Input, Select, Textarea } = window.UI;
+  const { Logo, Btn, Card, Field, Input, Select, Textarea, readImageAsDataURL, readFileAsDataURL } = window.UI;
   const { useState } = React;
+
+  // خانة رفع ملف واحد — توضّح بجلاء أن الملف «تم استلامه»
+  function FileSlot({ label, required, value, onPick, onRemove, lang }) {
+    const ref = React.useRef(null);
+    const [busy, setBusy] = useState(false);
+    const onChange = async (e) => {
+      const f = e.target.files && e.target.files[0]; if (!f) return;
+      setBusy(true);
+      try {
+        const isImage = /^image\//.test(f.type || '');
+        const dataUrl = isImage ? await readImageAsDataURL(f, 900) : await readFileAsDataURL(f);
+        onPick({ label, name: f.name, size: f.size, isImage, dataUrl });
+      } catch (err) { alert(lang==='ar'?'تعذّر قراءة الملف':'Could not read file'); }
+      setBusy(false); if (ref.current) ref.current.value = '';
+    };
+    const kb = value && value.size ? (value.size > 1048576 ? (value.size/1048576).toFixed(1)+' MB' : Math.max(1, Math.round(value.size/1024))+' KB') : '';
+    return (
+      <Field label={label} required={required}>
+        {value ? (
+          <div style={{ display:'flex', alignItems:'center', gap:11, padding:'11px 13px', borderRadius:12, border:`1.5px solid ${theme.ok}`, background:theme.okBg }}>
+            <div style={{ width:34, height:34, borderRadius:9, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Icon name="checkCircle" size={18} color={theme.ok} /></div>
+            <div style={{ flex:1, minWidth:0 }}>
+              <p style={{ fontSize:12.5, fontWeight:700, color:theme.ok }}>{lang==='ar'?'تم استلام الملف':'File received'}</p>
+              <p style={{ fontSize:11.5, color:theme.brown, whiteSpace:'nowrap', overflow:'hidden', textOverflow:'ellipsis' }} dir="ltr">{value.name}{kb?' · '+kb:''}</p>
+            </div>
+            <button type="button" onClick={onRemove} title={lang==='ar'?'إزالة':'Remove'} style={{ width:30, height:30, borderRadius:8, background:'#fff', border:`1px solid ${theme.line}`, color:theme.bad, cursor:'pointer', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Icon name="x" size={15} /></button>
+          </div>
+        ) : (
+          <label style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 14px', borderRadius:12, border:`1.5px dashed ${theme.line}`, cursor:'pointer', color:theme.muted, fontSize:13, background:theme.paperAlt }}>
+            <Icon name={busy?'clock':'upload'} size={17} color={theme.primary} /> {busy ? (lang==='ar'?'جارٍ الرفع…':'Uploading…') : (lang==='ar'?'اختر ملفًا…':'Choose file…')}
+            <input ref={ref} type="file" style={{ display:'none' }} onChange={onChange} />
+          </label>
+        )}
+      </Field>
+    );
+  }
 
   function Shell({ lang, setLang, onBack, children, narrow }) {
     const t = L(lang);
@@ -86,9 +122,11 @@
   // ---- registration form
   function RegisterForm({ lang, onBack, onRegister }) {
     const t = L(lang);
-    const [d, setD] = useState({ full_name:'', national_id:'', gender:'', birth_place:'', birth_y:'', birth_m:'', birth_d:'', marital:'', nationality:'', residence:'', phone:'', email:'', workplace:'', job_title:'', last_qual:'', specialization:'', provider:'', grad_year:'', program:'', study_days:'', how_heard:'', pledge:false, notes:'' });
+    const [d, setD] = useState({ full_name:'', national_id:'', gender:'', birth_place:'', birth_y:'', birth_m:'', birth_d:'', marital:'', nationality:'', residence:'', phone:'', email:'', workplace:'', job_title:'', last_qual:'', specialization:'', provider:'', grad_year:'', program:'', study_days:'', how_heard:'', pledge:false, notes:'', attachments:{} });
     const [sent, setSent] = useState(false);
     const set = (k,v) => setD(p=>({ ...p, [k]:v }));
+    const setAttach = (key, val) => setD(p=>({ ...p, attachments:{ ...(p.attachments||{}), [key]: val } }));
+    const removeAttach = (key) => setD(p=>{ const a={ ...(p.attachments||{}) }; delete a[key]; return { ...p, attachments:a }; });
     const submit = (e) => {
       e.preventDefault();
       if (!d.full_name || !d.national_id || !d.gender || !d.phone || !d.program || !d.pledge) { alert(t('fillRequired')); return; }
@@ -172,13 +210,10 @@
           ))}
           {sec(t('secAttach'), 'upload', (
             <div style={g2} className="tc-form-grid">
-              {[t('hsCert'),t('personalPhoto'),t('recommendation'),t('addCerts')].map((lab,i)=>(
-                <Field key={i} label={lab} required={i<3}>
-                  <label style={{ display:'flex', alignItems:'center', gap:10, padding:'11px 14px', borderRadius:11, border:`1.5px dashed ${theme.line}`, cursor:'pointer', color:theme.muted, fontSize:13, background:theme.paperAlt }}>
-                    <Icon name="upload" size={17} color={theme.primary} /> {lang==='ar'?'اختر ملفاً…':'Choose file…'}
-                    <input type="file" style={{ display:'none' }} />
-                  </label>
-                </Field>
+              {[['hsCert',t('hsCert')],['photo',t('personalPhoto')],['recommendation',t('recommendation')],['addCerts',t('addCerts')]].map(([key,lab],i)=>(
+                <FileSlot key={key} label={lab} required={i<3} lang={lang}
+                  value={(d.attachments||{})[key]}
+                  onPick={(v)=>setAttach(key, v)} onRemove={()=>removeAttach(key)} />
               ))}
             </div>
           ))}

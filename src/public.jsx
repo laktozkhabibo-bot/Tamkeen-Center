@@ -101,12 +101,10 @@
     useEffect(() => { const id = setInterval(()=>setTick(p=>p+1), 6000); return ()=>clearInterval(id); }, []);
     const bg = tick % heroImgs.length;
     const i = tick % slides.length;
-    const sideDir = isAr ? 'to left' : 'to right';
-    // تدرّج باللون الرملي: قويّ عند جهة النص (اليمين للعربية) ثم يخفّ تدريجيًا حتى يشفّ تمامًا نحو اليسار
-    const sand = '120,90,46'; // لون رملي دافئ من هوية المركز (عمق كافٍ ليُقرأ النص الأبيض)
-    const scrim = `linear-gradient(${sideDir}, rgba(${sand},.97) 0%, rgba(${sand},.9) 22%, rgba(${sand},.62) 48%, rgba(${sand},.26) 72%, rgba(${sand},0) 100%)`;
+    // التدرّج اللوني للخلفية يُدار عبر CSS (الفئة tc-hero-scrim) ليتكيّف مع الجوال:
+    // أفقي رملي على الشاشات الكبيرة، ورأسي داكن متجانس على الجوال ليُقرأ النص بوضوح.
     return (
-      <section style={{ position:'relative', overflow:'hidden', minHeight:'clamp(540px,84vh,760px)', display:'flex', alignItems:'center', borderBottom:`1px solid ${theme.line}` }}>
+      <section className="tc-hero" style={{ position:'relative', overflow:'hidden', minHeight:'clamp(540px,84vh,760px)', display:'flex', alignItems:'center', borderBottom:`1px solid ${theme.line}` }}>
         {/* الخلفية: صور حقيقية للمركز تتبدّل بهدوء */}
         <div style={{ position:'absolute', inset:0, zIndex:0 }}>
           {heroImgs.map((im,k)=>(
@@ -114,7 +112,7 @@
               style={{ position:'absolute', inset:0, width:'100%', height:'100%', objectFit:'cover',
                 opacity:bg===k?1:0, transition:'opacity 1.1s ease', transform:bg===k?'scale(1.06)':'scale(1)', transitionProperty:'opacity, transform', transitionDuration:'1.1s, 5.6s' }} />
           ))}
-          <div style={{ position:'absolute', inset:0, background:scrim }} />
+          <div className="tc-hero-scrim" />
         </div>
 
         {/* المحتوى */}
@@ -141,7 +139,7 @@
             </div>
             <div style={{ display:'flex', gap:8, marginTop:38 }}>
               {heroImgs.map((_,k)=>(
-                <button key={k} onClick={()=>setBg(k)} aria-label={`صورة ${k+1}`}
+                <button key={k} onClick={()=>setTick(k)} aria-label={`صورة ${k+1}`}
                   style={{ width:bg===k?30:10, height:10, borderRadius:999, border:'none', cursor:'pointer',
                     background:bg===k?'#fff':'rgba(255,255,255,.4)', transition:'all .3s ease', padding:0 }} />
               ))}

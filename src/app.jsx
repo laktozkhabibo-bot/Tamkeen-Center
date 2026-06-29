@@ -6,7 +6,7 @@
   const { theme, L } = window.TC;
   const { PublicSite } = window.Public;
   const { AuthFlow } = window.Auth;
-  const { StudentDashboard, TeacherDashboard, ManagementDashboard } = window.Dashboards;
+  const { StudentDashboard, TeacherDashboard, ManagementDashboard, RegistrarDashboard } = window.Dashboards;
   const { useState, useEffect } = React;
   const TCData = window.TCData;
 
@@ -41,7 +41,7 @@
       const a = (seg[0] || '').toLowerCase();
       const tab = new URLSearchParams(search || '').get('tab');
       if (a === 'login') return { view: 'auth', publicPage: 'home', dashTab: null, dashBase: null };
-      if (a === 'mng' || a === 'teacher' || a === 'student') return { view: 'dashboard', publicPage: 'home', dashTab: tab || null, dashBase: a };
+      if (a === 'mng' || a === 'teacher' || a === 'student' || a === 'reg') return { view: 'dashboard', publicPage: 'home', dashTab: tab || null, dashBase: a };
       const pages = ['about', 'leadership', 'diplomas'];
       return { view: 'public', publicPage: pages.includes(a) ? a : 'home', dashTab: null, dashBase: null };
     };
@@ -72,7 +72,7 @@
       let sub = '';
       if (view === 'auth') sub = 'login';
       else if (view === 'dashboard' && user) {
-        const b = user.role === 'student' ? 'student' : user.role === 'teacher' ? 'teacher' : 'mng';
+        const b = user.role === 'student' ? 'student' : user.role === 'teacher' ? 'teacher' : user.role === 'registrar' ? 'reg' : 'mng';
         sub = b + (dashTab ? ('?tab=' + encodeURIComponent(dashTab)) : '');
       } else {
         sub = publicPage === 'home' ? '' : publicPage;
@@ -203,7 +203,7 @@
       setUser(null); setDb(null); setView('public'); setPublicPage('home'); setDashTab(null);
     };
     const goHome = () => { setView('public'); setPublicPage('home'); };
-    const handleRegister = () => { /* تسجيل الطلاب الذاتي: مرحلة لاحقة */ };
+    const handleRegister = (form) => { try { if (window.RegData && form) window.RegData.addRequest(form); } catch (e) { console.error('register', e); } };
 
     // ---- العمليات: تحديث متفائل فوري + كتابة في الخلفية (لا إعادة تحميل كامل) ----
     const actions = {
@@ -442,6 +442,8 @@
       const common = { user, lang, setLang, db, actions, onLogout: handleLogout, onHome: goHome, routeTab: dashTab, onTab: setDashTab };
       if (user.role === 'student') return <StudentDashboard {...common} />;
       if (user.role === 'teacher') return <TeacherDashboard {...common} />;
+      // حساب الإدارة المخصص للقبول (REG102 — management_section = 'admissions') ← لوحة التسجيل والقبول
+      if (user.managementSection === 'admissions') return <RegistrarDashboard {...common} />;
       return <ManagementDashboard {...common} />;
     };
 
