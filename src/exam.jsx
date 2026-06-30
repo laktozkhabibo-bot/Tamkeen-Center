@@ -135,25 +135,31 @@
       });
       stopTracks();
       const duration = startedAtRef.current ? Math.round((Date.now() - startedAtRef.current) / 1000) : 0;
+      const answers = (exam.questions || []).map((q) => ({ id:q.id, text:q.text, type:q.type, answer: ans[q.id] || '' }));
+      let storagePath = null;
+      let uploadError = null;
+      // 1) رفع الفيديو (مسار بأحرف لاتينية فقط — التخزين لا يقبل العربية في اسم الملف)
+      if (blob && blob.size > 0) {
+        setUploadMsg('جارٍ رفع الفيديو…');
+        const linkSafe = (LINK || 'exam').replace(/[^A-Za-z0-9_-]+/g, '_');
+        const rand = Math.random().toString(36).slice(2, 8);
+        storagePath = `${linkSafe}/${Date.now()}-${rand}.webm`;
+        try {
+          const up = await sb.storage.from('exam-recordings').upload(storagePath, blob, { contentType: 'video/webm', upsert: false });
+          if (up.error) { uploadError = up.error; storagePath = null; }
+        } catch (e) { uploadError = e; storagePath = null; }
+      }
+      // 2) حفظ المحاولة (الاسم + الإجابات + الفيديو إن نجح) — تظهر دائمًا لمسؤول القبول
       try {
-        let storagePath = null;
-        if (blob && blob.size > 0) {
-          setUploadMsg('جارٍ رفع الفيديو… قد يستغرق ذلك دقائق حسب سرعة الإنترنت.');
-          const safe = (name || 'student').replace(/[^\w\u0600-\u06FF-]+/g, '_').slice(0, 40);
-          const linkSafe = LINK.replace(/[^\w-]+/g, '_');
-          storagePath = `${linkSafe}/${Date.now()}-${safe}.webm`;
-          const up = await sb.storage.from('exam-recordings').upload(storagePath, blob, { contentType:'video/webm', upsert:false });
-          if (up.error) throw up.error;
-        }
-        const answers = (exam.questions || []).map((q) => ({ id:q.id, text:q.text, type:q.type, answer: ans[q.id] || '' }));
         const ins = await sb.rpc('submit_admission_recording', {
           p_exam_id: exam.id, p_exam_title: exam.title, p_student_name: name, p_phone: phone,
           p_national_id: nid, p_storage_path: storagePath, p_duration_sec: duration, p_answers: answers,
         });
         if (ins.error) throw ins.error;
-        setUploadMsg(''); setState('done');
+        setUploadMsg(uploadError ? ('تم حفظ إجاباتك، لكن تعذّر رفع الفيديو: ' + ((uploadError && uploadError.message) || String(uploadError))) : '');
+        setState('done');
       } catch (e) {
-        setUploadMsg('تم إنهاء الاختبار، لكن تعذّر رفع الفيديو: ' + ((e && e.message) || String(e)));
+        setUploadMsg('تم إنهاء الاختبار، لكن تعذّر حفظ البيانات: ' + ((e && e.message) || String(e)));
         setState('done');
       }
     }, [exam, ans, name, phone, nid]);
@@ -168,7 +174,11 @@
       setState('requesting');
       let stream;
       try {
-        stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: 8 }, audio: false });
+        // دقّة ومعدّل إطارات منخفضان عمدًا — يكفي للمراقبة ويجعل الملف صغيرًا جدًا
+        stream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 4, max: 6 }, height: { ideal: 540 }, width: { ideal: 960 } },
+          audio: false,
+        });
       } catch (e) {
         setErr('لم تُمنح صلاحية تسجيل الشاشة. لا يمكن بدء الاختبار قبل السماح بالتسجيل.');
         setState('denied'); return;
@@ -178,10 +188,12 @@
       let mr;
       const tryMime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
       const mime = tryMime.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
-      try { mr = new MediaRecorder(stream, mime ? { mimeType: mime } : undefined); }
+      // معدّل بِت منخفض جدًا (~90 كيلوبت/ث) → حجم صغير ورفع سريع
+      const recOpts = mime ? { mimeType: mime, videoBitsPerSecond: 90000 } : { videoBitsPerSecond: 90000 };
+      try { mr = new MediaRecorder(stream, recOpts); }
       catch (e) { setErr('تعذّر بدء التسجيل: ' + ((e && e.message) || e)); stopTracks(); setState('denied'); return; }
       mr.ondataavailable = (ev) => { if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data); };
-      mr.start(1000); // قطعة كل ثانية
+      mr.start(2000); // جمع البيانات على دفعات
       recRef.current = mr;
       startedAtRef.current = Date.now();
       // إن أوقف الطالب المشاركة → إنهاء الجلسة تلقائيًا
