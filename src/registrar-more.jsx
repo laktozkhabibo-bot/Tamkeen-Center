@@ -546,12 +546,12 @@
           </Modal>
         )}
         {answersFor && (
-          <Modal title={e('answersLabel') + ' — ' + answersFor.studentName} onClose={()=>setAnswersFor(null)} width={560}>
-            <div style={{ display:'grid', gap:12 }}>
+          <Modal title={e('answersLabel') + ' — ' + answersFor.studentName} onClose={()=>setAnswersFor(null)} width={620}>
+            <div style={{ display:'grid', gap:16 }}>
               {answersFor.answers.map((a,i)=>(
-                <div key={i} style={{ padding:'12px 14px', borderRadius:12, background:theme.paperAlt, border:`1px solid ${theme.lineSoft}` }}>
-                  <p style={{ fontSize:13, fontWeight:700, color:theme.ink, marginBottom:6 }}>{i+1}. {a.text}</p>
-                  <p style={{ fontSize:13.5, color:a.answer?theme.brown:theme.muted, lineHeight:1.7 }}>{a.answer || (lang==='ar'?'— بدون إجابة':'— no answer')}</p>
+                <div key={i} style={{ padding:'18px 20px', borderRadius:14, background:theme.paperAlt, border:`1px solid ${theme.lineSoft}` }}>
+                  <p style={{ fontSize:14.5, fontWeight:700, color:theme.ink, marginBottom:12, lineHeight:1.95, whiteSpace:'pre-wrap' }}>{i+1}. {a.text}</p>
+                  <p style={{ fontSize:15, color:a.answer?theme.brown:theme.muted, lineHeight:2.15, whiteSpace:'pre-wrap', wordBreak:'break-word' }}>{a.answer || (lang==='ar'?'— بدون إجابة':'— no answer')}</p>
                 </div>
               ))}
             </div>
