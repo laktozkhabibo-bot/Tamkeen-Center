@@ -98,7 +98,9 @@
     const [recWarn, setRecWarn] = useState('');
 
     const recRef = useRef(null);       // MediaRecorder
-    const streamRef = useRef(null);    // MediaStream
+    const streamRef = useRef(null);    // MediaStream (الشاشة + صوت النظام)
+    const micRef = useRef(null);       // ميكروفون
+    const audioCtxRef = useRef(null);  // مازج الصوت
     const chunksRef = useRef([]);
     const startedAtRef = useRef(0);
     const stateRef = useRef(state);
@@ -120,7 +122,11 @@
       })();
     }, []);
 
-    const stopTracks = () => { if (streamRef.current) { try { streamRef.current.getTracks().forEach((t) => t.stop()); } catch (_) {} } };
+    const stopTracks = () => {
+      try { if (streamRef.current) streamRef.current.getTracks().forEach((t) => t.stop()); } catch (_) {}
+      try { if (micRef.current) micRef.current.getTracks().forEach((t) => t.stop()); } catch (_) {}
+      try { if (audioCtxRef.current && audioCtxRef.current.state !== 'closed') audioCtxRef.current.close(); } catch (_) {}
+    };
 
     // ---- إنهاء الجلسة: إيقاف التسجيل + رفع الفيديو + حفظ السجل ----
     const finishing = useRef(false);
@@ -172,32 +178,58 @@
         setState('denied'); return;
       }
       setState('requesting');
-      let stream;
+      let dStream;
       try {
-        // الدقّة الأصلية كاملة (وضوح عالٍ للنص) + معدّل إطارات منخفض (الشاشة ثابتة)
-        stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { frameRate: { ideal: 5, max: 8 } },
-          audio: false,
+        // طلب الشاشة كاملة + صوت النظام، بأعلى دقّة ومعدّل إطارات جيّد
+        dStream = await navigator.mediaDevices.getDisplayMedia({
+          video: { frameRate: { ideal: 15, max: 30 }, displaySurface: 'monitor' },
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         });
       } catch (e) {
         setErr('لم تُمنح صلاحية تسجيل الشاشة. لا يمكن بدء الاختبار قبل السماح بالتسجيل.');
         setState('denied'); return;
       }
-      streamRef.current = stream;
+      const vtrack = dStream.getVideoTracks()[0];
+      // التأكّد أنه شارك «الشاشة بأكملها» وليس نافذة أو تبويبًا
+      const surface = (vtrack.getSettings && vtrack.getSettings().displaySurface) || '';
+      if (surface && surface !== 'monitor') {
+        dStream.getTracks().forEach((t) => t.stop());
+        setErr('يجب اختيار «الشاشة بأكملها» (Entire screen) — وليس نافذة أو تبويبًا واحدًا. أعد المحاولة واختر الشاشة كاملة.');
+        setState('denied'); return;
+      }
+      // الميكروفون (لتسجيل صوت الطالب) — أفضل جهد، لا يوقف الاختبار إن رُفض
+      let micStream = null;
+      try { micStream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+      catch (e) { micStream = null; }
+      micRef.current = micStream;
+      // دمج صوت النظام + الميكروفون في مسار صوتي واحد
+      let finalStream;
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        const ac = new AC();
+        const dest = ac.createMediaStreamDestination();
+        let anyAudio = false;
+        if (dStream.getAudioTracks().length) { ac.createMediaStreamSource(new MediaStream(dStream.getAudioTracks())).connect(dest); anyAudio = true; }
+        if (micStream && micStream.getAudioTracks().length) { ac.createMediaStreamSource(micStream).connect(dest); anyAudio = true; }
+        audioCtxRef.current = ac;
+        finalStream = new MediaStream([vtrack, ...(anyAudio ? dest.stream.getAudioTracks() : [])]);
+      } catch (e) {
+        finalStream = new MediaStream([vtrack, ...dStream.getAudioTracks(), ...(micStream ? micStream.getAudioTracks() : [])]);
+      }
+      streamRef.current = dStream;
       chunksRef.current = [];
       let mr;
-      const tryMime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+      const tryMime = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp9', 'video/webm;codecs=vp8,opus', 'video/webm;codecs=vp8', 'video/webm'];
       const mime = tryMime.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
-      // VP9 + سقف بِت معتدل (~1.2 م.بت/ث): النص حاد، والملف صغير لأن الشاشة لا تتغيّر كثيرًا
-      const recOpts = mime ? { mimeType: mime, videoBitsPerSecond: 1200000 } : { videoBitsPerSecond: 1200000 };
-      try { mr = new MediaRecorder(stream, recOpts); }
+      // جودة عالية: ~8 ميغابت/ث للفيديو + صوت 128 كيلوبت/ث (VP9 يضغط الشاشة الثابتة تلقائيًا)
+      const recOpts = mime ? { mimeType: mime, videoBitsPerSecond: 8000000, audioBitsPerSecond: 128000 } : { videoBitsPerSecond: 8000000 };
+      try { mr = new MediaRecorder(finalStream, recOpts); }
       catch (e) { setErr('تعذّر بدء التسجيل: ' + ((e && e.message) || e)); stopTracks(); setState('denied'); return; }
       mr.ondataavailable = (ev) => { if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data); };
       mr.start(2000); // جمع البيانات على دفعات
       recRef.current = mr;
       startedAtRef.current = Date.now();
       // إن أوقف الطالب المشاركة → إنهاء الجلسة تلقائيًا
-      const vtrack = stream.getVideoTracks()[0];
       if (vtrack) vtrack.addEventListener('ended', () => {
         if (['waiting','exam'].includes(stateRef.current)) { setRecWarn('توقّفت مشاركة الشاشة — تم إنهاء الجلسة.'); finish(); }
       });
@@ -261,22 +293,34 @@
                 <InfoRow icon={<IconClock size={19} color={C.primaryDeep} />} label="مدة الاختبار" value={(exam.durationMin||45) + ' دقيقة'} />
                 <InfoRow icon={<IconAward size={19} color={C.primaryDeep} />} label="درجة النجاح" value={(exam.passMark||60) + '%'} />
                 <InfoRow icon={<IconFile size={19} color={C.primaryDeep} />} label="عدد الأسئلة" value={(exam.questions||[]).length} />
-                <InfoRow icon={<IconShield size={19} color={C.primaryDeep} />} label="مراقبة" value="تسجيل الشاشة" />
+                <InfoRow icon={<IconShield size={19} color={C.primaryDeep} />} label="المراقبة" value="الشاشة + الصوت" />
               </div>
             </Card>
 
             <Card style={{ marginBottom:18, border:`1.5px solid ${C.gold}`, background:C.paperAlt }}>
-              <div style={{ display:'flex', gap:13 }}>
+              <div style={{ display:'flex', gap:13, marginBottom:14 }}>
                 <div style={{ width:44, height:44, borderRadius:12, background:C.goldSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><IconMonitor size={22} color={C.primaryDeep} /></div>
                 <div>
-                  <h3 style={{ fontSize:16, fontWeight:800, color:C.ink, marginBottom:7 }}>تنبيه: هذا الاختبار مُراقَب بتسجيل الشاشة</h3>
-                  <p style={{ fontSize:13.5, color:C.brown, lineHeight:1.85 }}>
-                    عند الضغط على «بدء الاختبار» سيطلب المتصفح إذنًا لمشاركة الشاشة. <strong style={{ color:C.primaryDeep }}>اختر «الشاشة بأكملها» واضغط مشاركة.</strong>
-                    لن يبدأ الاختبار إطلاقًا قبل السماح بالتسجيل. سيُرسَل الفيديو تلقائيًا إلى إدارة القبول باسمك.
-                    يُرجى استخدام جهاز حاسوب (لا يعمل تسجيل الشاشة على الجوال).
-                  </p>
+                  <h3 style={{ fontSize:16.5, fontWeight:800, color:C.ink, marginBottom:6 }}>هذا الاختبار مُراقَب بتسجيل الشاشة والصوت</h3>
+                  <p style={{ fontSize:13.5, color:C.brown, lineHeight:1.95 }}>عند الضغط على «بدء الاختبار» سيطلب المتصفح إذنين. اتبع الخطوات التالية بدقّة — لن يبدأ الاختبار قبل إتمامها:</p>
                 </div>
               </div>
+              <ol style={{ margin:0, paddingInlineStart:0, listStyle:'none', display:'grid', gap:11 }}>
+                {[
+                  ['اختر «الشاشة بأكملها»', 'في نافذة المشاركة اختر «الشاشة بأكملها» (Entire screen) — لا نافذة ولا تبويبًا. لن يُقبل غير ذلك.'],
+                  ['اسمح بالميكروفون', 'سيُطلب إذن الميكروفون، فاسمح به. سيُسجَّل صوتك وصوت جهازك طوال الاختبار.'],
+                  ['تنقّل بين نوافذ جهازك', 'بعد بدء التسجيل، تنقّل بين صفحات وتطبيقات جهازك للتأكّد من تسجيل الشاشة كاملة، وليست صفحة الاختبار وحدها.'],
+                ].map((it, k) => (
+                  <li key={k} style={{ display:'flex', gap:11, alignItems:'flex-start' }}>
+                    <span style={{ width:26, height:26, borderRadius:'50%', background:C.primary, color:'#fff', fontWeight:800, fontSize:13, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontFamily:f, marginTop:2 }}>{k+1}</span>
+                    <div>
+                      <div style={{ fontSize:14.5, fontWeight:700, color:C.ink, marginBottom:2 }}>{it[0]}</div>
+                      <div style={{ fontSize:13, color:C.brown, lineHeight:1.9 }}>{it[1]}</div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+              <p style={{ fontSize:12.5, color:C.muted, lineHeight:1.9, marginTop:14, paddingTop:13, borderTop:`1px solid ${C.lineSoft}` }}>يُرسَل التسجيل تلقائيًا إلى إدارة القبول باسمك. يلزم استخدام جهاز حاسوب (لا يعمل تسجيل الشاشة على الجوال).</p>
             </Card>
 
             <Card>
@@ -321,7 +365,7 @@
               </div>
             </div>
             <h2 style={{ fontFamily:"'Amiri', serif", fontSize:25, color:C.ink, marginBottom:8 }}>استعدّ — سيبدأ الاختبار قريبًا</h2>
-            <p style={{ color:C.brown, fontSize:14.5, lineHeight:1.8, marginBottom:22 }}>أنت الآن في غرفة الانتظار، والتسجيل قيد العمل. خذ نفسًا، وتأكّد من جلوسك في مكان هادئ.</p>
+            <p style={{ color:C.brown, fontSize:14.5, lineHeight:1.95, marginBottom:18 }}>أنت الآن في غرفة الانتظار، والتسجيل قيد العمل. <strong style={{ color:C.primaryDeep }}>تنقّل الآن بين نوافذ وصفحات جهازك</strong> للتأكد من أن الشاشة كاملة تُسجَّل، ثم استعد للاختبار في مكان هادئ.</p>
             <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 1fr', gap:10, marginBottom:24 }}>
               <MiniStat label="الاختبار" value={exam.title} />
               <MiniStat label="المدة" value={(exam.durationMin||45)+' دقيقة'} />
