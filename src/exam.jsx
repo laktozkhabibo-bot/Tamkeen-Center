@@ -344,6 +344,9 @@
                 ))}
               </ul>
             </Card>
+
+            <Card>
+              <h3 style={{ fontSize:15.5, fontWeight:800, color:C.ink, marginBottom:16, display:'flex', alignItems:'center', gap:8 }}><IconUser size={18} color={C.primary} />بيانات الطالب</h3>
               <div style={{ display:'grid', gap:14 }}>
                 <Fld label="الاسم الكامل" required><Inp value={name} onChange={(e)=>setName(e.target.value)} placeholder="الاسم كما في طلب التسجيل" /></Fld>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
