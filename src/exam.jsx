@@ -323,8 +323,27 @@
               <p style={{ fontSize:12.5, color:C.muted, lineHeight:1.9, marginTop:14, paddingTop:13, borderTop:`1px solid ${C.lineSoft}` }}>يُرسَل التسجيل تلقائيًا إلى إدارة القبول باسمك. يلزم استخدام جهاز حاسوب (لا يعمل تسجيل الشاشة على الجوال).</p>
             </Card>
 
-            <Card>
-              <h3 style={{ fontSize:15.5, fontWeight:800, color:C.ink, marginBottom:16, display:'flex', alignItems:'center', gap:8 }}><IconUser size={18} color={C.primary} />بيانات الطالب</h3>
+            <Card style={{ marginBottom:18, border:`1.5px solid ${C.bad}`, background:C.badBg }}>
+              <div style={{ display:'flex', gap:13, marginBottom:13 }}>
+                <div style={{ width:44, height:44, borderRadius:12, background:'#fff', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><IconAlert size={23} color={C.bad} /></div>
+                <div>
+                  <h3 style={{ fontSize:16.5, fontWeight:800, color:C.bad, marginBottom:5 }}>شروط القبول — مخالفتها = رفض الاختبار وصفر</h3>
+                  <p style={{ fontSize:13.5, color:C.brown, lineHeight:1.95 }}>اقرأ هذه الشروط جيّدًا. أيّ مخالفة لها تعني <strong style={{ color:C.bad }}>رفض الاختبار ووضع علامة صفر</strong> دون استثناء:</p>
+                </div>
+              </div>
+              <ul style={{ margin:0, paddingInlineStart:0, listStyle:'none', display:'grid', gap:10 }}>
+                {[
+                  'إذا لم يُسمع صوتك في الفيديو، يُعَدّ الاختبار مرفوضًا وتوضع علامة صفر.',
+                  'إذا لم تظهر في التسجيل جميع شاشات جهازك (وليس صفحة الاختبار وحدها)، يُعَدّ الاختبار مرفوضًا وتوضع علامة صفر.',
+                  'إذا خرجت إلى أي مكان أو أوقفت التسجيل أثناء فترة الاختبار، توضع لك علامة صفر.',
+                ].map((it, k) => (
+                  <li key={k} style={{ display:'flex', gap:11, alignItems:'flex-start', background:'#fff', borderRadius:12, padding:'12px 14px', border:`1px solid ${C.lineSoft}` }}>
+                    <span style={{ flexShrink:0, marginTop:2 }}><IconAlert size={18} color={C.bad} /></span>
+                    <span style={{ fontSize:14, color:C.ink, fontWeight:600, lineHeight:1.9 }}>{it}</span>
+                  </li>
+                ))}
+              </ul>
+            </Card>
               <div style={{ display:'grid', gap:14 }}>
                 <Fld label="الاسم الكامل" required><Inp value={name} onChange={(e)=>setName(e.target.value)} placeholder="الاسم كما في طلب التسجيل" /></Fld>
                 <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }}>
