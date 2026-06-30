@@ -174,9 +174,9 @@
       setState('requesting');
       let stream;
       try {
-        // دقّة ومعدّل إطارات منخفضان عمدًا — يكفي للمراقبة ويجعل الملف صغيرًا جدًا
+        // الدقّة الأصلية كاملة (وضوح عالٍ للنص) + معدّل إطارات منخفض (الشاشة ثابتة)
         stream = await navigator.mediaDevices.getDisplayMedia({
-          video: { frameRate: { ideal: 4, max: 6 }, height: { ideal: 540 }, width: { ideal: 960 } },
+          video: { frameRate: { ideal: 5, max: 8 } },
           audio: false,
         });
       } catch (e) {
@@ -188,8 +188,8 @@
       let mr;
       const tryMime = ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
       const mime = tryMime.find((m) => window.MediaRecorder && MediaRecorder.isTypeSupported(m)) || '';
-      // معدّل بِت منخفض جدًا (~90 كيلوبت/ث) → حجم صغير ورفع سريع
-      const recOpts = mime ? { mimeType: mime, videoBitsPerSecond: 90000 } : { videoBitsPerSecond: 90000 };
+      // VP9 + سقف بِت معتدل (~1.2 م.بت/ث): النص حاد، والملف صغير لأن الشاشة لا تتغيّر كثيرًا
+      const recOpts = mime ? { mimeType: mime, videoBitsPerSecond: 1200000 } : { videoBitsPerSecond: 1200000 };
       try { mr = new MediaRecorder(stream, recOpts); }
       catch (e) { setErr('تعذّر بدء التسجيل: ' + ((e && e.message) || e)); stopTracks(); setState('denied'); return; }
       mr.ondataavailable = (ev) => { if (ev.data && ev.data.size > 0) chunksRef.current.push(ev.data); };
@@ -362,25 +362,25 @@
             <div style={{ display:'grid', gap:14 }}>
               {questions.map((q, i) => (
                 <Card key={q.id} pad={20}>
-                  <div style={{ display:'flex', gap:11, marginBottom:14 }}>
-                    <span style={{ width:30, height:30, borderRadius:9, background:C.goldSoft, color:C.primaryDeep, fontWeight:800, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontFamily:f }}>{i+1}</span>
-                    <p style={{ fontSize:16, fontWeight:600, color:C.ink, lineHeight:1.7, paddingTop:3 }}>{q.text}</p>
+                  <div style={{ display:'flex', gap:13, marginBottom:18 }}>
+                    <span style={{ width:32, height:32, borderRadius:9, background:C.goldSoft, color:C.primaryDeep, fontWeight:800, fontSize:14, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, fontFamily:f }}>{i+1}</span>
+                    <p style={{ fontSize:17, fontWeight:600, color:C.ink, lineHeight:2, paddingTop:4, whiteSpace:'pre-wrap', textWrap:'pretty' }}>{q.text}</p>
                   </div>
                   {q.type === 'mcq' ? (
                     <div style={{ display:'grid', gap:9, paddingInlineStart:41 }}>
                       {(q.options || []).map((opt, k) => {
                         const on = ans[q.id] === k;
                         return (
-                          <button key={k} type="button" onClick={()=>setAns((p)=>({ ...p, [q.id]:k }))} style={{ display:'flex', alignItems:'center', gap:11, padding:'12px 15px', borderRadius:12, border:`1.5px solid ${on?C.primary:C.line}`, background:on?C.goldSoft:C.paperAlt, cursor:'pointer', textAlign:'start', fontFamily:f }}>
+                          <button key={k} type="button" onClick={()=>setAns((p)=>({ ...p, [q.id]:k }))} style={{ display:'flex', alignItems:'center', gap:12, padding:'14px 16px', borderRadius:12, border:`1.5px solid ${on?C.primary:C.line}`, background:on?C.goldSoft:C.paperAlt, cursor:'pointer', textAlign:'start', fontFamily:f }}>
                             <span style={{ width:21, height:21, borderRadius:'50%', border:`2px solid ${on?C.primary:C.line}`, background:on?C.primary:'transparent', display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}>{on && <IconCheck size={12} color="#fff" />}</span>
-                            <span style={{ fontSize:14.5, color:C.ink }}>{opt}</span>
+                            <span style={{ fontSize:15.5, color:C.ink, lineHeight:1.8 }}>{opt}</span>
                           </button>
                         );
                       })}
                     </div>
                   ) : (
                     <div style={{ paddingInlineStart:41 }}>
-                      <textarea value={ans[q.id] || ''} onChange={(e)=>setAns((p)=>({ ...p, [q.id]:e.target.value }))} rows={4} placeholder="اكتب إجابتك هنا…" style={{ width:'100%', padding:'12px 14px', borderRadius:12, border:`1px solid ${C.line}`, background:C.paperAlt, fontSize:14.5, color:C.ink, outline:'none', lineHeight:1.8 }} />
+                      <textarea value={ans[q.id] || ''} onChange={(e)=>setAns((p)=>({ ...p, [q.id]:e.target.value }))} rows={6} placeholder="اكتب إجابتك هنا…" style={{ width:'100%', padding:'16px 18px', borderRadius:14, border:`1px solid ${C.line}`, background:C.paperAlt, fontSize:15.5, color:C.ink, outline:'none', lineHeight:2.1 }} />
                     </div>
                   )}
                 </Card>
