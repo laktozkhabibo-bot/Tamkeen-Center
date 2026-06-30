@@ -17,6 +17,7 @@
     rejected:{ar:'المرفوضون',en:'Rejected'},
     exams:{ar:'اختبارات القبول',en:'Admission Exams'},
     results:{ar:'النتائج',en:'Results'},
+    recordings:{ar:'الفيديوهات المسجلة',en:'Recordings'},
     messages:{ar:'الرسائل والإشعارات',en:'Messages'},
     reports:{ar:'التقارير',en:'Reports'},
     total:{ar:'إجمالي الطلبات',en:'Total applications'},
@@ -100,6 +101,12 @@
   };
   const statusLabel = (s, lang) => (STATUS[s] ? STATUS[s][lang] : s);
   const programLabel = (id, lang) => { const d = diplomas.find((x) => x.id === id); return d ? pick(d.name, lang) : (id || '—'); };
+
+  // رابط صفحة الاختبار الكامل (exam.html بجانب index.html)
+  const examUrl = (link) => {
+    const base = window.location.origin + window.location.pathname.replace(/[^/]*$/, '');
+    return base + 'exam.html?e=' + encodeURIComponent(link);
+  };
 
   function SectionHead({ icon, title, count, action, color }) {
     return (
@@ -447,6 +454,10 @@
     const t = T(lang);
     const pubExams = exams.filter((e)=>e.published);
     const [eid, setEid] = useState(pubExams[0] ? pubExams[0].id : '');
+    const [copied, setCopied] = useState(false);
+    const ex = pubExams.find((e)=>e.id===eid);
+    const url = ex ? examUrl(ex.link) : '';
+    const copy = () => { try { navigator.clipboard.writeText(url); } catch(_){} setCopied(true); setTimeout(()=>setCopied(false), 1600); };
     return (
       <Card pad={14} style={{ marginBottom:18, border:`1px solid ${theme.line}` }}>
         <Field label={t('chooseExam')}>
@@ -455,6 +466,16 @@
           </Select>
         </Field>
         {pubExams.length===0 && <p style={{ fontSize:12.5, color:theme.bad, marginTop:8 }}>{lang==='ar'?'لا توجد اختبارات منشورة. انشر اختبارًا أولًا من قسم الاختبارات.':'No published exams. Publish one first.'}</p>}
+        {ex && (
+          <div style={{ marginTop:12 }}>
+            <p style={{ fontSize:11.5, color:theme.muted, marginBottom:5 }}>{lang==='ar'?'رابط الاختبار (مع تسجيل الشاشة):':'Exam link (with screen recording):'}</p>
+            <div style={{ display:'flex', alignItems:'center', gap:8, padding:'9px 11px', borderRadius:10, background:theme.paperAlt, border:`1px solid ${theme.line}` }}>
+              <Icon name="link" size={14} color={theme.primary} />
+              <span dir="ltr" style={{ flex:1, fontFamily:'monospace', fontSize:11.5, color:theme.ink, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{url}</span>
+              <button type="button" onClick={copy} style={{ background:'none', border:'none', cursor:'pointer', color:copied?theme.ok:theme.primary, display:'flex', flexShrink:0 }}>{copied?<Icon name="check" size={15} />:<Icon name="clipboard" size={15} />}</button>
+            </div>
+          </div>
+        )}
         <div style={{ display:'flex', gap:10, marginTop:12 }}>
           <Btn full variant="soft" onClick={onCancel}>{t('cancel')}</Btn>
           <Btn full variant="primary" icon="send" disabled={!eid} onClick={()=>onSend(eid)}>{t('send')}</Btn>
@@ -488,5 +509,5 @@
     );
   }
 
-  window.RegCore = { STR, T, STATUS, statusLabel, programLabel, SectionHead, StatCard, StatsTab, RequestList, RequestRow, RequestDetail, MessageComposer };
+  window.RegCore = { STR, T, STATUS, statusLabel, programLabel, examUrl, SectionHead, StatCard, StatsTab, RequestList, RequestRow, RequestDetail, MessageComposer };
 })();

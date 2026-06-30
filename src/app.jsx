@@ -203,7 +203,12 @@
       setUser(null); setDb(null); setView('public'); setPublicPage('home'); setDashTab(null);
     };
     const goHome = () => { setView('public'); setPublicPage('home'); };
-    const handleRegister = (form) => { try { if (window.RegData && form) window.RegData.addRequest(form); } catch (e) { console.error('register', e); } };
+    const handleRegister = async (form) => {
+      try {
+        if (window.RegData && form) return await window.RegData.addRequest(form);
+      } catch (e) { console.error('register', e); return { ok: false, error: (e && e.message) || String(e) }; }
+      return { ok: false, error: 'RegData unavailable' };
+    };
 
     // ---- العمليات: تحديث متفائل فوري + كتابة في الخلفية (لا إعادة تحميل كامل) ----
     const actions = {

@@ -5,7 +5,7 @@
 (function () {
   const { theme, Icon, fmtDate } = window.TC;
   const { Btn, Badge, Card, EmptyState, Field, Input, Select, Textarea, Modal, Avatar } = window.UI;
-  const { T, STATUS, statusLabel, programLabel, SectionHead, StatCard } = window.RegCore;
+  const { T, STATUS, statusLabel, programLabel, examUrl, SectionHead, StatCard } = window.RegCore;
   const { useState } = React;
 
   const ES = {
@@ -64,6 +64,14 @@
     byProgram:{ar:'حسب البرنامج',en:'By program'},
     byStatus:{ar:'حسب الحالة',en:'By status'},
     funnel:{ar:'مسار القبول',en:'Admission funnel'},
+    recordingsTitle:{ar:'الفيديوهات المسجلة',en:'Recorded sessions'},
+    noRecs:{ar:'لا توجد تسجيلات بعد',en:'No recordings yet'},
+    noRecsB:{ar:'تظهر هنا تسجيلات شاشة الطلاب بعد دخولهم رابط الاختبار',en:'Student screen recordings appear here after they take an exam'},
+    play:{ar:'تشغيل',en:'Play'},
+    loadingVid:{ar:'جارٍ التحميل…',en:'Loading…'},
+    duration:{ar:'المدة',en:'Duration'},
+    answersLabel:{ar:'إجابات الطالب',en:'Student answers'},
+    viewAnswers:{ar:'عرض الإجابات',en:'View answers'},
     conversionRate:{ar:'نسبة التحويل إلى طلاب',en:'Conversion to students'},
     passRate:{ar:'نسبة النجاح',en:'Pass rate'},
     summary:{ar:'ملخّص',en:'Summary'},
@@ -77,7 +85,7 @@
     const [qModal, setQModal] = useState(null); // question obj or 'new'
     const [copied, setCopied] = useState('');
 
-    const copyLink = (link) => { try { navigator.clipboard.writeText(window.location.origin + '/' + link); } catch(_){} setCopied(link); setTimeout(()=>setCopied(''), 1600); };
+    const copyLink = (link) => { try { navigator.clipboard.writeText(examUrl(link)); } catch(_){} setCopied(link); setTimeout(()=>setCopied(''), 1600); };
 
     return (
       <div>
@@ -475,5 +483,83 @@
     );
   }
 
-  window.RegMore = { ExamsTab, ResultsTab, MessagesTab, ReportsTab };
+  // ============ الفيديوهات المسجلة ============
+  function fmtDur(sec) {
+    sec = Math.max(0, Math.round(sec || 0));
+    const m = Math.floor(sec / 60), s = sec % 60;
+    return m + ':' + String(s).padStart(2, '0');
+  }
+
+  function RecordingsTab({ db, lang, actions }) {
+    const e = E(lang);
+    const recs = db.recordings || [];
+    const [playing, setPlaying] = useState(null); // { url, rec }
+    const [loadingId, setLoadingId] = useState('');
+    const [answersFor, setAnswersFor] = useState(null);
+
+    const openVideo = async (rec) => {
+      setLoadingId(rec.id);
+      try {
+        const url = await actions.recordingUrl(rec.storagePath);
+        if (url) setPlaying({ url, rec }); else alert(lang==='ar'?'تعذّر جلب الفيديو':'Could not load video');
+      } catch (er) { alert((er && er.message) || String(er)); }
+      setLoadingId('');
+    };
+
+    return (
+      <div>
+        <SectionHead icon="video" title={e('recordingsTitle')} count={recs.length} />
+        {recs.length===0 ? <EmptyState icon="video" title={e('noRecs')} body={e('noRecsB')} /> : (
+          <div style={{ display:'grid', gap:11 }}>
+            {recs.map((r)=>(
+              <Card key={r.id} pad={15}>
+                <div style={{ display:'flex', alignItems:'center', gap:13, flexWrap:'wrap' }}>
+                  <div style={{ width:46, height:46, borderRadius:12, background:theme.creamDeep, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0, position:'relative' }}>
+                    <Icon name="video" size={22} color={theme.primary} />
+                  </div>
+                  <div style={{ flex:1, minWidth:160 }}>
+                    <p style={{ fontSize:15, fontWeight:700, color:theme.ink }}>{r.studentName || (lang==='ar'?'بدون اسم':'Unknown')}</p>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap', fontSize:12, color:theme.muted, marginTop:3 }}>
+                      <span>{r.examTitle || '—'}</span>
+                      <span style={{ color:theme.line }}>•</span>
+                      <span style={{ display:'flex', alignItems:'center', gap:4 }}><Icon name="clock" size={12} />{fmtDur(r.durationSec)}</span>
+                      <span style={{ color:theme.line }}>•</span>
+                      <span>{fmtDate(r.at, lang)}</span>
+                      {r.phone && <><span style={{ color:theme.line }}>•</span><span dir="ltr">{r.phone}</span></>}
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:6, flexWrap:'wrap' }}>
+                    {r.answers && r.answers.length>0 && <Btn size="sm" variant="ghost" icon="fileText" onClick={()=>setAnswersFor(r)}>{e('viewAnswers')}</Btn>}
+                    <Btn size="sm" variant="primary" icon="play" disabled={loadingId===r.id || !r.storagePath} onClick={()=>openVideo(r)}>{loadingId===r.id?e('loadingVid'):e('play')}</Btn>
+                    <button onClick={async ()=>{ const ok=await window.UI.confirm({ title:e('recordingsTitle'), message:lang==='ar'?'حذف هذا التسجيل نهائيًا؟':'Delete this recording?', confirmText:lang==='ar'?'حذف':'Delete', icon:'trash' }); if(ok) actions.deleteRecording(r.id, r.storagePath); }} style={iconBtn(theme.bad)}><Icon name="trash" size={15} /></button>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {playing && (
+          <Modal title={playing.rec.studentName + ' — ' + (playing.rec.examTitle||'')} onClose={()=>setPlaying(null)} width={760}>
+            <video src={playing.url} controls autoPlay style={{ width:'100%', borderRadius:12, background:'#000', maxHeight:'62vh' }} />
+            <p style={{ fontSize:12, color:theme.muted, marginTop:10 }}>{e('duration')}: {fmtDur(playing.rec.durationSec)} · {fmtDate(playing.rec.at, lang)}</p>
+          </Modal>
+        )}
+        {answersFor && (
+          <Modal title={e('answersLabel') + ' — ' + answersFor.studentName} onClose={()=>setAnswersFor(null)} width={560}>
+            <div style={{ display:'grid', gap:12 }}>
+              {answersFor.answers.map((a,i)=>(
+                <div key={i} style={{ padding:'12px 14px', borderRadius:12, background:theme.paperAlt, border:`1px solid ${theme.lineSoft}` }}>
+                  <p style={{ fontSize:13, fontWeight:700, color:theme.ink, marginBottom:6 }}>{i+1}. {a.text}</p>
+                  <p style={{ fontSize:13.5, color:a.answer?theme.brown:theme.muted, lineHeight:1.7 }}>{a.answer || (lang==='ar'?'— بدون إجابة':'— no answer')}</p>
+                </div>
+              ))}
+            </div>
+          </Modal>
+        )}
+      </div>
+    );
+  }
+
+  window.RegMore = { ExamsTab, ResultsTab, MessagesTab, ReportsTab, RecordingsTab };
 })();

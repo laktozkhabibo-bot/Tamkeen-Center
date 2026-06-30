@@ -124,13 +124,21 @@
     const t = L(lang);
     const [d, setD] = useState({ full_name:'', national_id:'', gender:'', birth_place:'', birth_y:'', birth_m:'', birth_d:'', marital:'', nationality:'', residence:'', phone:'', email:'', workplace:'', job_title:'', last_qual:'', specialization:'', provider:'', grad_year:'', program:'', study_days:'', how_heard:'', pledge:false, notes:'', attachments:{} });
     const [sent, setSent] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [err, setErr] = useState('');
     const set = (k,v) => setD(p=>({ ...p, [k]:v }));
     const setAttach = (key, val) => setD(p=>({ ...p, attachments:{ ...(p.attachments||{}), [key]: val } }));
     const removeAttach = (key) => setD(p=>{ const a={ ...(p.attachments||{}) }; delete a[key]; return { ...p, attachments:a }; });
-    const submit = (e) => {
+    const submit = async (e) => {
       e.preventDefault();
       if (!d.full_name || !d.national_id || !d.gender || !d.phone || !d.program || !d.pledge) { alert(t('fillRequired')); return; }
-      onRegister(d); setSent(true);
+      setBusy(true); setErr('');
+      try {
+        const res = await onRegister(d);
+        if (res && res.ok === false) { setErr(res.error || (lang==='ar'?'تعذّر إرسال الطلب. حاول مجددًا.':'Could not submit. Try again.')); setBusy(false); return; }
+        setSent(true);
+      } catch (er) { setErr((er && er.message) || String(er)); }
+      setBusy(false);
     };
     if (sent) return (
       <div style={{ maxWidth:480, margin:'40px auto 0', textAlign:'center' }}>
@@ -224,9 +232,10 @@
             </label>
             <Field label={t('notes')}><Textarea value={d.notes} onChange={e=>set('notes',e.target.value)} rows={3} /></Field>
           </Card>
+          {err && <Card pad={14} style={{ marginBottom:16, border:`1px solid ${theme.bad}`, background:theme.badBg }}><p style={{ fontSize:13.5, color:theme.bad, display:'flex', alignItems:'center', gap:8 }}><Icon name="alert" size={16} />{err}</p></Card>}
           <div style={{ display:'flex', gap:12, justifyContent:'flex-end' }}>
-            <Btn variant="soft" onClick={onBack}>{t('cancel')}</Btn>
-            <Btn type="submit" variant="primary" iconRight="send">{t('submitApp')}</Btn>
+            <Btn variant="soft" onClick={onBack} disabled={busy}>{t('cancel')}</Btn>
+            <Btn type="submit" variant="primary" iconRight="send" disabled={busy}>{busy ? (lang==='ar'?'جارٍ الإرسال…':'Submitting…') : t('submitApp')}</Btn>
           </div>
         </form>
       </div>
