@@ -180,6 +180,39 @@
     // إشعار صامت: لا يُنبّه ولا يُعيد المزامنة عند الفشل (الإسناد نفسه هو المهم)
     const notify = (fn) => enqueue(async () => { try { await fn(); } catch (e) { console.warn('notify', e); } });
 
+    // ============================================================
+    // مزامنة تلقائية: عند إسناد "مجموعة/فصل" لمعلّم، أو إسناد "مقرر" لمعلّم،
+    // يجب أن ينتقل طلاب تلك المجموعة معها فورًا إلى تسجيلات ذلك المقرر —
+    // بدل انتظار تسجيلهم فرديًا يدويًا. تُستدعى بعد كلا نوعي الإسناد (بأي ترتيب).
+    // تُسجَّل فقط طلاب المجموعة التي تطابق دبلومة/سنة المقرر نفسه.
+    // ============================================================
+    const syncAutoEnrollments = (snapshotDb, tid) => {
+      const X = window.TCX;
+      if (!X) return;
+      const teacherCourseIds = (snapshotDb.courseTeachers || []).filter((ct) => ct.teacherId === tid).map((ct) => ct.courseId);
+      const teacherSectionKeys = (snapshotDb.teacherSections || []).filter((ts) => ts.teacherId === tid).map((ts) => ts.section);
+      if (!teacherCourseIds.length || !teacherSectionKeys.length) return;
+      const toAdd = [];
+      teacherCourseIds.forEach((cid) => {
+        const course = (snapshotDb.courses || []).find((c) => c.id === cid);
+        if (!course) return;
+        const sem = X.semester(course.semester);
+        if (!sem) return;
+        teacherSectionKeys.forEach((key) => {
+          const sec = X.parseSection(key);
+          if (!sec || sec.diploma !== course.diploma || sec.year !== sem.year) return;
+          (snapshotDb.users || []).filter((u) => u.role === 'student' && u.section === key).forEach((s) => {
+            const exists = (snapshotDb.enrollments || []).some((e) => e.courseId === cid && e.studentId === s.accessKey)
+              || toAdd.some((e) => e.courseId === cid && e.studentId === s.accessKey);
+            if (!exists) toAdd.push({ id: newId(), courseId: cid, studentId: s.accessKey });
+          });
+        });
+      });
+      if (!toAdd.length) return;
+      patchDb((d) => ({ ...d, enrollments: [...d.enrollments, ...toAdd] }));
+      toAdd.forEach((e) => bg(() => TCData.enrollStudent(e.courseId, e.studentId, uid, e.id), { reconcile: true }));
+    };
+
     // تحديث/حذف متفائل: تعديل محلي فوري + كتابة بالخلفية (لا إعادة تحميل عند النجاح)
     const optMut = (patch, write) => (...a) => { patch(...a); bg(() => write(...a)); };
 
@@ -386,6 +419,8 @@
         bg(() => TCData.assignCourseTeacher(cid, tid, uid, id), { reconcile: true });
         const course = db && db.courses.find((c) => c.id === cid);
         notify(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مقرر إليك: ' : 'Course assigned to you: ') + (course ? course.name : ''), uid));
+        // مزامنة تلقائية: تسجيل طلاب مجموعات هذا المعلم (الموكلة إليه سلفًا) في المقرر الجديد
+        if (db) syncAutoEnrollments({ ...db, courseTeachers: [...db.courseTeachers, { id, courseId: cid, teacherId: tid }] }, tid);
       },
       unassignCourseTeacher: optMut(
         (id) => patchDb((d) => ({ ...d, courseTeachers: d.courseTeachers.filter((x) => x.id !== id) })),
@@ -410,6 +445,8 @@
         bg(() => TCData.assignSection(tid, section, uid, id), { reconcile: true });
         const label = window.TCX.sectionLabel(section, lang);
         notify(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مجموعة إليك: ' : 'Section assigned to you: ') + label, uid));
+        // مزامنة تلقائية: تسجيل طلاب هذه المجموعة في مقررات هذا المعلم المطابقة لنفس الدبلومة/السنة
+        if (db) syncAutoEnrollments({ ...db, teacherSections: [...(db.teacherSections||[]), { id, teacherId: tid, section }] }, tid);
       },
       unassignSection: optMut(
         (id) => patchDb((d) => ({ ...d, teacherSections: (d.teacherSections||[]).filter((x) => x.id !== id) })),
