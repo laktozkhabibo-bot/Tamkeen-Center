@@ -28,9 +28,9 @@ jobs:
             echo "::error::SUPABASE_URL أو SUPABASE_ANON_KEY غير مضبوط في أسرار المستودع."
             exit 1
           fi
-          # استعلام بسيط جدًا (صف واحد) يكفي لاحتساب نشاط على قاعدة البيانات
+          # استعلام بسيط جدًا (صف واحد) على جدول profiles — يكفي لاحتساب نشاط
           code=$(curl -sS -o /tmp/out.txt -w '%{http_code}' \
-            "${SUPABASE_URL}/rest/v1/users?select=id&limit=1" \
+            "${SUPABASE_URL}/rest/v1/profiles?select=id&limit=1" \
             -H "apikey: ${SUPABASE_ANON_KEY}" \
             -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
           echo "HTTP $code"
