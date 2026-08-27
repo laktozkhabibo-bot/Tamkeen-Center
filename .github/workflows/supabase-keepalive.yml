@@ -1,0 +1,43 @@
+# =============================================================
+#  نبضة Supabase — تمنع تجميد المشروع بسبب الخمول
+#  تعمل تلقائيًا كل يوم (وكذلك يدويًا من تبويب Actions).
+#  المطلوب مرة واحدة: أضف في GitHub → Settings → Secrets and variables
+#  → Actions هذين السريّين:
+#     SUPABASE_URL       = https://xxxx.supabase.co
+#     SUPABASE_ANON_KEY  = المفتاح العام (anon)
+# =============================================================
+name: Supabase Keepalive
+
+on:
+  schedule:
+    # 05:10 UTC يوميًا (لا تستخدم 00:00 — مزدحمة على GitHub)
+    - cron: '10 5 * * *'
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Supabase REST
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL أو SUPABASE_ANON_KEY غير مضبوط في أسرار المستودع."
+            exit 1
+          fi
+          # استعلام بسيط جدًا (صف واحد) يكفي لاحتساب نشاط على قاعدة البيانات
+          code=$(curl -sS -o /tmp/out.txt -w '%{http_code}' \
+            "${SUPABASE_URL}/rest/v1/users?select=id&limit=1" \
+            -H "apikey: ${SUPABASE_ANON_KEY}" \
+            -H "Authorization: Bearer ${SUPABASE_ANON_KEY}")
+          echo "HTTP $code"
+          head -c 300 /tmp/out.txt || true
+          echo
+          # 200 = نجاح، 401/403 = وصلنا للخدمة لكن RLS منع القراءة — وهذا نشاط كافٍ أيضًا
+          case "$code" in
+            200|401|403) echo "✅ Supabase حيّ." ;;
+            *) echo "::error::فشل الاتصال بـ Supabase (HTTP $code)"; exit 1 ;;
+          esac
