@@ -347,6 +347,12 @@
                     </Select>
                   </div>
                   <div style={{ display:'flex', alignItems:'center', gap:9 }}>
+                    <span style={{ fontSize:13, fontWeight:700, color:theme.brown }}>{lang==='ar'?'نوع الدراسة':'Study type'}:</span>
+                    <Select value={selected.studyType||'diploma'} onChange={e=>actions.editUser(selected.accessKey, { studyType:e.target.value })} style={{ width:'auto', padding:'7px 12px' }}>
+                      {X.STUDY_TYPES.map(st=><option key={st.id} value={st.id}>{tr(st.name)}</option>)}
+                    </Select>
+                  </div>
+                  <div style={{ display:'flex', alignItems:'center', gap:9 }}>
                     <span style={{ fontSize:13, fontWeight:700, color:theme.brown }}>{t('behavior')}:</span>
                     {editBeh ? (
                       <React.Fragment>
@@ -357,12 +363,25 @@
                   </div>
                 </div>
               </Card>
+              {(()=>{ const rec = X.buildRecord(db, selected.accessKey); return rec.cgpa!=null && (
+                <Card pad={20} style={{ marginBottom:16 }}>
+                  <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:14, flexWrap:'wrap' }}>
+                    <Icon name="award" size={17} color={theme.primary} />
+                    <h4 style={{ flex:1, fontSize:15, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{lang==='ar'?'السجل الأكاديمي':'Academic record'}</h4>
+                    <Btn size="sm" variant="soft" icon="download" onClick={()=>window.RecordUI.printRecord(selected, rec, lang)}>{lang==='ar'?'طباعة السجل':'Print record'}</Btn>
+                  </div>
+                  <window.RecordUI.RecordSummary record={rec} lang={lang} />
+                  <div style={{ display:'grid', gap:12, marginTop:14 }}>
+                    {rec.levels.filter(l=>l.started).map(l=><window.RecordUI.LevelTable key={l.sem.id} level={l} lang={lang} showPending />)}
+                  </div>
+                </Card>
+              ); })()}
               <Card pad={20}>
                 <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:14 }}><Icon name="book" size={17} color={theme.primary} /><h4 style={{ fontSize:15, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{t('gradeRecord')}</h4><Badge tone="neutral">{grades.length}</Badge></div>
                 {grades.length===0 ? <p style={{ fontSize:13, textAlign:'center', color:theme.muted, padding:'20px 0' }}>{t('noGrades')}</p> : (
                   <div style={{ display:'grid', gap:10 }}>
                     {grades.map(g=>{
-                      const c=course(g.courseId); const gs=X.GRADE_STATUS[g.status];
+                      const c=course(g.courseId); const gs=(X.GRADE_STATUS[g.status] || X.GRADE_STATUS.draft);
                       return (
                         <div key={g.id} style={{ padding:'13px 14px', borderRadius:12, background:theme.paperAlt }}>
                           <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap' }}>
@@ -370,7 +389,7 @@
                             <span style={{ fontSize:14, fontWeight:700, color:theme.ink }}>{c?c.name:'—'}</span>
                             <Badge tone={gs.tone}>{tr(gs.name)}</Badge>
                           </div>
-                          <GradeBreakdown grade={g} lang={lang} />
+                          <GradeBreakdown grade={g} course={c} lang={lang} />
                         </div>
                       );
                     })}

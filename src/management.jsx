@@ -68,12 +68,28 @@
     return (
       <div style={{ display:'grid', gap:12, padding:14, borderRadius:14, background:theme.paperAlt, border:`1px solid ${theme.lineSoft}` }}>
         <Field label={t('diploma')}>
-          <div style={{ display:'flex', gap:8 }}>
+          <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
             {X.DIPLOMAS.map(d=>(
-              <button key={d.id} type="button" onClick={()=>set({ diploma:d.id, studyGroup:1, attendanceGroup: form.attendanceGroup||'weekday' })} style={segBtn(form.diploma===d.id)}>{trx(d.name)}</button>
+              <button key={d.id} type="button" onClick={()=>set({ diploma:d.id, studyGroup:1, attendanceGroup: form.attendanceGroup||'weekday' })} style={segBtn(form.diploma===d.id)}>{trx(d.short)}</button>
             ))}
           </div>
         </Field>
+        <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:12 }} className="tc-form-grid">
+          <Field label={lang==='ar'?'نوع الدراسة':'Study type'}>
+            <div style={{ display:'flex', gap:8 }}>
+              {X.STUDY_TYPES.map(st=>(
+                <button key={st.id} type="button" onClick={()=>set({ studyType:st.id })} style={segBtn((form.studyType||'diploma')===st.id)}>{trx(st.name)}</button>
+              ))}
+            </div>
+          </Field>
+          <Field label={lang==='ar'?'حالة الطالب':'Student status'}>
+            <div style={{ display:'flex', gap:8, flexWrap:'wrap' }}>
+              {X.STATUSES.filter(st=>['regular','affiliate','graduate'].includes(st.id) || st.id===form.status).map(st=>(
+                <button key={st.id} type="button" onClick={()=>set({ status:st.id })} style={segBtn((form.status||'regular')===st.id)}>{trx(st.name)}</button>
+              ))}
+            </div>
+          </Field>
+        </div>
         <Field label={lang==='ar'?'السنة الدراسية':'Study year'}>
           <div style={{ display:'flex', gap:8 }}>
             {X.YEARS.map(y=>(
@@ -124,7 +140,7 @@
     const pendingGrades = (db.courseGrades||[]).filter(g=>g.status==='confirmed').length;
 
     const [addModal, setAddModal] = useState(null); // 'teacher'|'management'|'student'
-    const emptyForm = { name:'', accessKey:'', password:'', phone:'', email:'', img:null, specsText:'', diploma:'sunnah', attendanceGroup:'weekday', studyYear:1, studyGroup:1, academicYear:'' };
+    const emptyForm = { name:'', accessKey:'', password:'', phone:'', email:'', img:null, specsText:'', diploma:'sunnah', attendanceGroup:'weekday', studyYear:1, studyGroup:1, academicYear:'', status:'regular', studyType:'diploma' };
     const [form, setForm] = useState(emptyForm);
     const [selTeacher, setSelTeacher] = useState(null);
     const [editTarget, setEditTarget] = useState(null); // المستخدم قيد التعديل
@@ -144,7 +160,7 @@
     const openAdd = (role)=>{ setForm({ ...emptyForm }); setEditTarget(null); setAddModal(role); };
     const openEdit = (u)=>{
       const sec = u.section ? X.parseSection(u.section) : null;
-      setForm({ name:u.name||'', accessKey:u.accessKey, password:'', phone:u.phone||'', email:u.email||'', img:u.img||null, specsText:(u.specializations||[]).join('، '), diploma:(sec&&sec.diploma)||u.diploma||'sunnah', attendanceGroup:(sec&&sec.timing)||u.attendanceGroup||'weekday', studyYear:(sec&&sec.year)||1, studyGroup:(sec&&sec.group)||1, academicYear:u.academicYear||'' });
+      setForm({ name:u.name||'', accessKey:u.accessKey, password:'', phone:u.phone||'', email:u.email||'', img:u.img||null, specsText:(u.specializations||[]).join('، '), diploma:(sec&&sec.diploma)||u.diploma||'sunnah', attendanceGroup:(sec&&sec.timing)||u.attendanceGroup||'weekday', studyYear:(sec&&sec.year)||1, studyGroup:(sec&&sec.group)||1, academicYear:u.academicYear||'', status:u.status||'regular', studyType:u.studyType||'diploma' });
       setAddModal(null); setEditTarget(u);
     };
     const saveAdd = ()=>{
@@ -157,6 +173,8 @@
         payload.attendanceGroup = form.diploma==='arabic' ? form.attendanceGroup : null;
         payload.section = section;
         payload.academicYear = X.sectionLabel(section, lang);
+        payload.status = form.status || 'regular';
+        payload.studyType = form.studyType || 'diploma';
       }
       actions.addUser(addModal, payload);
       setAddModal(null);
@@ -171,6 +189,8 @@
         payload.attendanceGroup = form.diploma==='arabic' ? form.attendanceGroup : null;
         payload.section = section;
         payload.academicYear = X.sectionLabel(section, lang);
+        payload.status = form.status || 'regular';
+        payload.studyType = form.studyType || 'diploma';
       }
       actions.editUser(editTarget.accessKey, payload);
       setEditTarget(null);

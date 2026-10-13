@@ -14,11 +14,11 @@
     accessKey: p.access_key, name: p.name, role: p.role,
     managementSection: p.management_section, specializations: p.specializations || [],
     academicYear: p.academic_year, phone: p.phone, email: p.email, img: p.img_url, password: '',
-    status: p.status || 'regular', diploma: p.diploma || null,
+    status: p.status || 'regular', studyType: p.study_type || 'diploma', diploma: p.diploma || null,
     attendanceGroup: p.attendance_group || null, section: p.section || null, createdAt: p.created_at,
   });
   const mapCourse = (c) => ({
-    id: c.id, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code,
+    id: c.id, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, hours: c.hours != null ? Number(c.hours) : null,
     link: c.link, notes: c.notes, fileData: c.file_data || null, fileName: c.file_name,
     hasFile: !!c.file_name, createdBy: c.created_by, createdAt: c.created_at,
   });
@@ -96,7 +96,9 @@
       sb.from('app_settings').select('*'),
       // ملاحظة: لا نحمّل file_data (محتوى الملف base64) هنا لأنه قد يكون ضخمًا
       // ويُبطئ كل إعادة تحميل؛ يُجلَب عند الطلب فقط عبر getCourseFile.
-      sb.from('courses').select('id,diploma,semester,name,code,link,notes,file_name,created_by,created_at').order('code'),
+      // عمود hours يُضاف في setup-v11 — إن لم يُشغَّل بعد نرجع للأعمدة القديمة دون كسر التحميل
+      sb.from('courses').select('id,diploma,semester,name,code,hours,link,notes,file_name,created_by,created_at').order('code')
+        .then((r) => (r.error ? sb.from('courses').select('id,diploma,semester,name,code,link,notes,file_name,created_by,created_at').order('code') : r)),
       sb.from('course_teachers').select('*'),
       sb.from('enrollments').select('*'),
       sb.from('teacher_students').select('*'),
@@ -239,17 +241,19 @@
       if (f.attendanceGroup !== undefined) patch.attendance_group = f.attendanceGroup || null;
       if (f.section !== undefined) patch.section = f.section || null;
       if (f.academicYear !== undefined) patch.academic_year = f.academicYear || null;
+      if (f.status !== undefined) patch.status = f.status || 'regular';
+      if (f.studyType !== undefined) patch.study_type = f.studyType || 'diploma';
       return sb.from('profiles').update(patch).eq('access_key', accessKey);
     },
     setUserImage: (accessKey, img) => sb.from('profiles').update({ img_url: img }).eq('access_key', accessKey),
 
     addCourse: (c, by, id) => sb.from('courses').insert({
       ...(id ? { id } : {}), diploma: c.diploma, semester: c.semester, name: c.name, code: c.code,
-      link: c.link || null, notes: c.notes || null,
+      hours: parseFloat(c.hours) || 2, link: c.link || null, notes: c.notes || null,
       file_data: c.fileData || null, file_name: c.fileName || null, created_by: by }),
     editCourse: (id, c) => {
       const patch = { diploma: c.diploma, semester: c.semester, name: c.name, code: c.code,
-        link: c.link || null, notes: c.notes || null };
+        hours: parseFloat(c.hours) || 2, link: c.link || null, notes: c.notes || null };
       // عند التعديل دون تغيير الملف (keepFile) لا نمسّ محتوى الملف المخزّن
       if (!c.keepFile) { patch.file_data = c.fileData || null; patch.file_name = c.fileName || null; }
       return sb.from('courses').update(patch).eq('id', id);
@@ -294,6 +298,7 @@
   };
 
   window.TCData = {
+    BUILD: 12,
     signIn, signOut, getSessionUser, onAuthChange, loadDB,
     uploadCloudFile, removeCloudItem, clearCloud, getDownloadUrl, getCourseFile,
     ...ops,

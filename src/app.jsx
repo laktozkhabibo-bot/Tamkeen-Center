@@ -296,7 +296,15 @@
       },
 
       // المستخدمون (عبر RPC خادمي)
-      addUser: run((role, f) => TCData.addUser(role, f)),
+      addUser: run(async (role, f) => {
+        const r = await TCData.addUser(role, f);
+        if (r && r.error) return r;
+        // الحالة ونوع الدراسة ليسا ضمن دالة الإنشاء الخادمية — نُكملهما بتعديل لاحق
+        if (role === 'student' && (f.status || f.studyType)) {
+          return TCData.editUser((f.accessKey || '').toUpperCase(), { status: f.status, studyType: f.studyType });
+        }
+        return r;
+      }),
       deleteUser: async (accessKey) => {
         const ok = await window.UI.confirm({ title: lang==='ar'?'حذف المستخدم':'Delete user', message: lang==='ar'?'سيُحذف هذا المستخدم وكل بياناته نهائيًا. هل تريد المتابعة؟':'This user and all their data will be permanently deleted.', confirmText: lang==='ar'?'حذف':'Delete', icon:'trash' });
         if (!ok) return;
@@ -333,6 +341,8 @@
           if (f.attendanceGroup !== undefined) next.attendanceGroup = f.attendanceGroup || null;
           if (f.section !== undefined) next.section = f.section || null;
           if (f.academicYear !== undefined) next.academicYear = f.academicYear || null;
+          if (f.status !== undefined) next.status = f.status || 'regular';
+          if (f.studyType !== undefined) next.studyType = f.studyType || 'diploma';
           return next;
         }) }));
         if (accessKey === uid) setUser((prev) => prev ? { ...prev, ...(f.name!=null?{name:f.name}:{}), ...(f.img!==undefined?{img:f.img}:{}) } : prev);
@@ -395,11 +405,11 @@
       },
       addCourse: (c) => {
         const id = newId();
-        patchDb((d) => ({ ...d, courses: [...d.courses, { id, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, fileData: c.fileData || null, fileName: c.fileName || null, hasFile: !!c.fileName, createdBy: uid, createdAt: new Date().toISOString() }] }));
+        patchDb((d) => ({ ...d, courses: [...d.courses, { id, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, hours: parseFloat(c.hours) || 2, link: c.link || null, notes: c.notes || null, fileData: c.fileData || null, fileName: c.fileName || null, hasFile: !!c.fileName, createdBy: uid, createdAt: new Date().toISOString() }] }));
         bg(() => TCData.addCourse(c, uid, id), { reconcile: true });
       },
       editCourse: optMut(
-        (id, c) => patchDb((d) => ({ ...d, courses: d.courses.map((x) => x.id === id ? { ...x, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, link: c.link || null, notes: c.notes || null, ...(c.keepFile ? {} : { fileData: c.fileData || null, fileName: c.fileName || null, hasFile: !!c.fileName }) } : x) })),
+        (id, c) => patchDb((d) => ({ ...d, courses: d.courses.map((x) => x.id === id ? { ...x, diploma: c.diploma, semester: c.semester, name: c.name, code: c.code, hours: parseFloat(c.hours) || 2, link: c.link || null, notes: c.notes || null, ...(c.keepFile ? {} : { fileData: c.fileData || null, fileName: c.fileName || null, hasFile: !!c.fileName }) } : x) })),
         (id, c) => TCData.editCourse(id, c)),
       deleteCourse: async (id) => {
         const ok = await window.UI.confirm({ title: lang==='ar'?'حذف المقرر':'Delete course', message: lang==='ar'?'سيُحذف المقرر وكل تسجيلاته ودرجاته. هل تريد المتابعة؟':'The course and all its enrollments and grades will be deleted.', confirmText: lang==='ar'?'حذف':'Delete', icon:'trash' });
@@ -502,7 +512,46 @@
     );
   }
 
+  // ---- حماية: فحص اكتمال ملفات الموقع (يكشف الرفع الجزئي فورًا بدل صفحة بيضاء) ----
+  const BUILD = 12;
+  const staleFiles = [
+    ['src/curriculum.js', window.TCX], ['src/data.js', window.TCData],
+    ['src/courses-ui.jsx', window.CoursesUI], ['src/courses-ui.jsx (RecordUI)', window.RecordUI],
+  ].filter(([, m]) => !m || m.BUILD !== BUILD).map(([f]) => f);
+
+  function StaleBanner() {
+    if (!staleFiles.length) return null;
+    return (
+      <div dir="rtl" style={{ position:'fixed', insetInline:0, bottom:0, zIndex:9999, background:'#B5664A', color:'#fff', padding:'12px 18px', fontFamily:'Cairo, sans-serif', fontSize:13.5, lineHeight:1.8, textAlign:'center' }}>
+        ⚠️ نسخة الموقع غير مكتملة — هذه الملفات قديمة أو غير مرفوعة: <strong dir="ltr">{staleFiles.join(' · ')}</strong>. ارفع المشروع كاملًا ثم حدّث الصفحة (Ctrl+Shift+R).
+      </div>
+    );
+  }
+
+  // ---- حماية: أي خطأ في جزء من الصفحة يُعرض كرسالة بدل صفحة بيضاء ----
+  class ErrorGuard extends React.Component {
+    constructor(p) { super(p); this.state = { err: null }; }
+    static getDerivedStateFromError(err) { return { err }; }
+    componentDidCatch(err, info) { console.error('ErrorGuard', err, info && info.componentStack); }
+    render() {
+      if (!this.state.err) return this.props.children;
+      return (
+        <div dir="rtl" style={{ minHeight:'100vh', display:'flex', alignItems:'center', justifyContent:'center', padding:24, background:'#F4EFE3', fontFamily:'Cairo, sans-serif' }}>
+          <div style={{ maxWidth:520, background:'#FCFAF3', border:'1px solid #E3D9C4', borderRadius:16, padding:24, textAlign:'center', color:'#473C28' }}>
+            <h2 style={{ fontSize:18, fontWeight:800, marginBottom:8 }}>حدث خطأ غير متوقع</h2>
+            <p style={{ fontSize:13.5, color:'#6E5B3D', lineHeight:1.9, marginBottom:14 }}>لم تُفقد أي بيانات. أعد تحميل الصفحة، وإن تكرر الخطأ أرسل هذا النص للدعم الفني:</p>
+            <pre dir="ltr" style={{ fontSize:11.5, background:'#F1EADB', borderRadius:10, padding:10, whiteSpace:'pre-wrap', textAlign:'left', marginBottom:14 }}>{String(this.state.err && (this.state.err.message || this.state.err))}{staleFiles.length ? '\nstale: ' + staleFiles.join(', ') : ''}</pre>
+            <div style={{ display:'flex', gap:8, justifyContent:'center' }}>
+              <button onClick={() => this.setState({ err: null })} style={{ padding:'9px 18px', borderRadius:10, border:'1px solid #E3D9C4', background:'#fff', cursor:'pointer', fontFamily:'inherit' }}>رجوع</button>
+              <button onClick={() => window.location.reload()} style={{ padding:'9px 18px', borderRadius:10, border:'none', background:'#8C6F47', color:'#fff', cursor:'pointer', fontFamily:'inherit', fontWeight:700 }}>إعادة التحميل</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
   ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.Fragment><App /><window.UI.ConfirmHost /></React.Fragment>
+    <React.Fragment><ErrorGuard><App /></ErrorGuard><window.UI.ConfirmHost /><StaleBanner /></React.Fragment>
   );
 })();

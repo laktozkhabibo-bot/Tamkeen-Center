@@ -19,15 +19,15 @@
     const [dip, setDip] = useState('sunnah');
     const [sem, setSem] = useState(cur);
     const [courseModal, setCourseModal] = useState(null); // null | {} new | course edit
-    const [form, setForm] = useState({ name:'', code:'', link:'', fileData:'', fileName:'', diploma:'sunnah', semester:cur });
+    const [form, setForm] = useState({ name:'', code:'', hours:2, link:'', fileData:'', fileName:'', diploma:'sunnah', semester:cur });
     const [enrollFor, setEnrollFor] = useState(null); // course being enrolled
 
     const teachers = db.users.filter(u=>u.role==='teacher');
     const courses = (db.courses||[]).filter(c=>c.diploma===dip && c.semester===sem);
 
-    const openNew = ()=>{ setForm({ name:'', code:X.nextCode(db.courses||[], dip, sem), link:'', fileData:'', fileName:'', diploma:dip, semester:sem }); setCourseModal({}); };
+    const openNew = ()=>{ setForm({ name:'', code:X.nextCode(db.courses||[], dip, sem), hours:2, link:'', fileData:'', fileName:'', diploma:dip, semester:sem }); setCourseModal({}); };
     const openEdit = async (c)=>{
-      setForm({ name:c.name, code:c.code, link:c.link||'', fileData:c.fileData||'', fileName:c.fileName||'', diploma:c.diploma, semester:c.semester });
+      setForm({ name:c.name, code:c.code, hours:X.courseHours(c), link:c.link||'', fileData:c.fileData||'', fileName:c.fileName||'', diploma:c.diploma, semester:c.semester });
       setCourseModal(c);
       // جلب محتوى الملف في الخلفية حتى لا يُفقد عند الحفظ
       if(!c.fileData && (c.hasFile || c.fileName)){
@@ -99,6 +99,7 @@
                       <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:6, flexWrap:'wrap' }}>
                         <span style={{ fontSize:12, fontWeight:700, color:theme.primaryDeep, background:theme.creamDeep, padding:'2px 9px', borderRadius:7 }} dir="rtl">{c.code}</span>
                         <h4 style={{ fontSize:15.5, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{c.name}</h4>
+                        <span style={{ fontSize:11.5, fontWeight:600, color:theme.muted }}>{X.courseHours(c)} {lang==='ar'?'ساعات · حد النقاط':'hrs · max pts'} {X.courseHours(c)*4}</span>
                       </div>
                       {/* المعلمون المسندون */}
                       <div style={{ display:'flex', alignItems:'center', gap:7, flexWrap:'wrap', marginBottom:8 }}>
@@ -142,8 +143,11 @@
                 <Field label={t('diploma')}><Select value={form.diploma} onChange={e=>setForm({...form,diploma:e.target.value})}>{X.DIPLOMAS.map(d=><option key={d.id} value={d.id}>{tr(d.name,lang)}</option>)}</Select></Field>
                 <Field label={t('semester')}><Select value={form.semester} onChange={e=>setForm({...form,semester:e.target.value})}>{X.SEMESTERS.map(s=><option key={s.id} value={s.id}>{tr(s.name,lang)}</option>)}</Select></Field>
               </div>
-              <div style={{ display:'grid', gridTemplateColumns:'1fr 2fr', gap:12 }}>
+              <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr 2fr', gap:12 }}>
                 <Field label={t('courseCode')} required><Input value={form.code} onChange={e=>setForm({...form,code:e.target.value})} dir="rtl" /></Field>
+                <Field label={lang==='ar'?'الساعات المعتمدة':'Credit hours'}>
+                  <Select value={form.hours||2} onChange={e=>setForm({...form,hours:Number(e.target.value)})}>{[1,2,3,4,5,6,7,8,9,10].map(h=><option key={h} value={h}>{h}</option>)}</Select>
+                </Field>
                 <Field label={t('courseFile')}>
                   <CourseFilePicker form={form} setForm={setForm} t={t} lang={lang} />
                 </Field>
@@ -311,7 +315,7 @@
                   {rows.map((g,idx)=>{
                     const c=course(g.courseId); const s=student(g.studentId);
                     const total=X.gradeTotal(g); const pct=X.gradePct(g); const col=theme[X.scoreTone(pct)];
-                    const gs=X.GRADE_STATUS[g.status];
+                    const gs=(X.GRADE_STATUS[g.status] || X.GRADE_STATUS.draft);
                     return (
                       <tr key={g.id} style={{ borderTop:`1px solid ${theme.lineSoft}` }}>
                         <td style={{ padding:'10px 13px', fontWeight:600, color:theme.ink, whiteSpace:'nowrap' }}>{s?s.name:g.studentId}</td>

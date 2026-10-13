@@ -6,6 +6,7 @@
   const { Avatar, Btn, Badge, Card, EmptyState, ScoreRing } = window.UI;
   const { DashShell, InboxView, ScheduleTable, downloadScheduleCSV, AnnouncementsView } = window.Dash;
   const { SemesterBanner, CourseCard, GradeBreakdown, StatusBadge } = window.CoursesUI;
+  const { AcademicRecord } = window.RecordUI;
   const X = window.TCX;
   const { useState, useEffect } = React;
 
@@ -18,6 +19,11 @@
 
     const inbox = db.sharedItems.filter(i=>i.toUserId===uid);
     const grades = (db.courseGrades||[]).filter(g=>g.studentId===uid && g.status==='approved');
+    // «درجاتي» = المستويات الجارية فقط؛ المكتملة تنتقل إلى «السجل الأكاديمي»
+    const record = X.buildRecord(db, uid);
+    const openLevels = record.levels.filter(l=>!l.complete && l.started);
+    const openCount = openLevels.reduce((n,l)=>n+l.rows.filter(r=>r.approved).length, 0);
+    const doneLevels = record.levels.filter(l=>l.complete).length;
     const myCourses = (db.enrollments||[]).filter(e=>e.studentId===uid).map(e=>(db.courses||[]).find(c=>c.id===e.courseId)).filter(Boolean);
     const course = (id)=>(db.courses||[]).find(c=>c.id===id);
     const assignments = db.assignments.filter(a=>a.studentId===uid);
@@ -31,6 +37,7 @@
       { id:'courses', label:t('myCourses'), icon:'book', badge:0 },
       { id:'schedule', label:t('mySchedule'), icon:'calendar', badge:0 },
       { id:'grades', label:t('myGrades'), icon:'book', badge:0 },
+      { id:'record', label:lang==='ar'?'السجل الأكاديمي':'Academic record', icon:'award', badge:0 },
       { id:'assignments', label:t('myAssignments'), icon:'fileText', badge:assignments.length },
       { id:'profile', label:t('myProfile'), icon:'user', badge:0 },
     ];
@@ -82,25 +89,49 @@
 
         {active==='grades' && (
           <div style={{ maxWidth:820, margin:'0 auto' }}>
-            <Section icon="book" title={t('myGrades')} extra={grades.length>0 && <Badge tone="neutral">{grades.length} {t('course')}</Badge>} />
-            {grades.length===0 ? <EmptyState icon="award" title={t('notApprovedYet')} body={t('notApprovedYetB')} /> : (
-              <div style={{ display:'grid', gap:12 }}>
-                {grades.map(g=>{
-                  const c = course(g.courseId);
-                  return (
-                    <Card key={g.id} pad={18}>
-                      <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:13, flexWrap:'wrap' }}>
-                        <div style={{ width:40, height:40, borderRadius:11, background:theme.goldSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Icon name="book" size={18} color={theme.primaryDeep} /></div>
-                        {c && <span style={{ fontSize:11.5, fontWeight:700, color:theme.muted }} dir="rtl">{c.code}</span>}
-                        <h3 style={{ flex:1, fontSize:16, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{c?c.name:'—'}</h3>
-                        <Badge tone="ok">{t('approved')}</Badge>
-                      </div>
-                      <GradeBreakdown grade={g} lang={lang} />
-                    </Card>
-                  );
-                })}
+            <Section icon="book" title={t('myGrades')} extra={openCount>0 && <Badge tone="neutral">{openCount} {t('course')}</Badge>} />
+            {doneLevels>0 && (
+              <button onClick={()=>setActive('record')} style={{ display:'flex', alignItems:'center', gap:8, width:'100%', marginBottom:14, padding:'11px 14px', borderRadius:12, border:`1px solid ${theme.line}`, background:theme.creamDeep, cursor:'pointer', fontFamily:'Cairo, sans-serif', fontSize:13, color:theme.brown, textAlign:'start' }}>
+                <Icon name="award" size={16} color={theme.primaryDeep} />
+                <span style={{ flex:1 }}>{lang==='ar'?`${doneLevels} مستوى مكتمل نُقل إلى السجل الأكاديمي — المعدل التراكمي `:`${doneLevels} completed level(s) in your academic record — CGPA `}<strong style={{ color:theme.ink }} dir="ltr">{record.cgpa!=null?X.fmt2(record.cgpa):'—'}</strong></span>
+                <Icon name={lang==='ar'?'arrowLeft':'arrowRight'} size={15} color={theme.muted} />
+              </button>
+            )}
+            {openCount===0 ? <EmptyState icon="award" title={t('notApprovedYet')} body={t('notApprovedYetB')} /> : (
+              <div style={{ display:'grid', gap:18 }}>
+                {openLevels.map(l=>(
+                  <div key={l.sem.id}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, flexWrap:'wrap' }}>
+                      <Icon name="layers" size={16} color={theme.primary} />
+                      <h3 style={{ fontSize:15.5, fontWeight:800, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{X.tr(l.sem.levelName, lang)}</h3>
+                      <Badge tone="warn">{l.rows.filter(r=>r.approved).length}/{l.rows.length} {lang==='ar'?'معتمدة':'approved'}</Badge>
+                      {l.gpa!=null && <span style={{ fontSize:12.5, color:theme.brown }}>{lang==='ar'?'المعدل الفصلي حتى الآن':'Term GPA so far'}: <strong style={{ color:theme.ink }} dir="ltr">{X.fmt2(l.gpa)}</strong> · {lang==='ar'?'النقاط':'Points'}: <strong style={{ color:theme.ink }}>{X.fmt2(l.points)}</strong></span>}
+                    </div>
+                    <div style={{ display:'grid', gap:12 }}>
+                      {l.rows.filter(r=>r.approved).map(r=>(
+                        <Card key={r.grade.id} pad={18}>
+                          <div style={{ display:'flex', alignItems:'center', gap:9, marginBottom:13, flexWrap:'wrap' }}>
+                            <div style={{ width:40, height:40, borderRadius:11, background:theme.goldSoft, display:'flex', alignItems:'center', justifyContent:'center', flexShrink:0 }}><Icon name="book" size={18} color={theme.primaryDeep} /></div>
+                            <span style={{ fontSize:11.5, fontWeight:700, color:theme.muted }} dir="rtl">{r.course.code}</span>
+                            <h3 style={{ flex:1, fontSize:16, fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{r.course.name}</h3>
+                            <span style={{ fontSize:12, color:theme.muted }}>{r.hours} {lang==='ar'?'ساعات':'hrs'}</span>
+                            <Badge tone="ok">{t('approved')}</Badge>
+                          </div>
+                          <GradeBreakdown grade={r.grade} course={r.course} lang={lang} />
+                        </Card>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
+          </div>
+        )}
+
+        {active==='record' && (
+          <div style={{ maxWidth:860, margin:'0 auto' }}>
+            <Section icon="award" title={lang==='ar'?'السجل الأكاديمي':'Academic record'} />
+            <AcademicRecord db={db} student={user} lang={lang} />
           </div>
         )}
 
@@ -144,6 +175,7 @@
                   <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:6 }}>
                     <Badge tone="gold">{t('student')}</Badge>
                     <StatusBadge status={user.status} lang={lang} />
+                    <Badge tone="neutral">{X.tr(X.studyType(user.studyType).name, lang)}</Badge>
                   </div>
                 </div>
               </div>
@@ -161,9 +193,9 @@
                 <ScoreRing value={behavior} size={104} label={t('behavior')} />
               </Card>
               <Card pad={20} style={{ textAlign:'center', display:'flex', flexDirection:'column', justifyContent:'center' }}>
-                <Icon name="book" size={24} color={theme.primary} style={{ margin:'0 auto 8px' }} />
-                <p style={{ fontSize:28, fontWeight:800, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{grades.length}</p>
-                <p style={{ fontSize:12.5, color:theme.muted }}>{t('grades')}</p>
+                <Icon name="award" size={24} color={theme.primary} style={{ margin:'0 auto 8px' }} />
+                <p style={{ fontSize:28, fontWeight:800, color:theme.ink, fontFamily:'Cairo, sans-serif' }} dir="ltr">{record.cgpa!=null?X.fmt2(record.cgpa):'—'}</p>
+                <p style={{ fontSize:12.5, color:theme.muted }}>{lang==='ar'?'المعدل التراكمي / 4':'CGPA / 4'}</p>
               </Card>
               <Card pad={20} style={{ textAlign:'center', display:'flex', flexDirection:'column', justifyContent:'center' }}>
                 <Icon name="fileText" size={24} color={theme.primary} style={{ margin:'0 auto 8px' }} />

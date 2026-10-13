@@ -13,6 +13,24 @@
   const { useState, useEffect } = React;
   const tr = (o, lang) => X.tr(o, lang);
 
+  // أزرار المستويات (الأول..الرابع) — تفصل طلاب/مقررات كل مستوى
+  function LevelTabs({ levels, value, onChange, counts, lang }) {
+    if (!levels.length) return null;
+    return (
+      <div style={{ display:'flex', gap:4, padding:4, borderRadius:12, background:theme.creamDeep, marginBottom:14, flexWrap:'wrap' }}>
+        {levels.map(lv=>{
+          const on = value===lv; const sem = X.levelSem(lv);
+          return (
+            <button key={lv} type="button" onClick={()=>onChange(lv)} style={{ flex:'1 1 auto', display:'flex', alignItems:'center', justifyContent:'center', gap:6, padding:'8px 10px', borderRadius:9, border:'none', cursor:'pointer', fontFamily:'Cairo, sans-serif', fontSize:12.5, fontWeight:700, background:on?theme.paper:'transparent', color:on?theme.ink:theme.brown, boxShadow:on?'0 1px 3px rgba(0,0,0,.08)':'none' }}>
+              {sem ? X.tr(sem.levelName, lang) : lv}
+              {counts && counts[lv]!=null && <span style={{ fontSize:11, color:theme.muted, fontWeight:600 }}>({counts[lv]})</span>}
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
   // صف إدخال درجة لطالب واحد في مقرر
   function GradeEntryRow({ student, course, grade, lang, actions }) {
     const t = L(lang);
@@ -30,8 +48,10 @@
     const clean = { participation:+vals.participation||0, midterm:+vals.midterm||0, final:+vals.final||0 };
     const total = clean.participation + clean.midterm + clean.final;
     const pct = Math.round((total / X.GRADE_TOTAL) * 100);
+    const hours = X.courseHours(course);
+    const sc = X.scaleFor(total);
     const status = grade ? grade.status : 'draft';
-    const gs = X.GRADE_STATUS[status];
+    const gs = (X.GRADE_STATUS[status] || X.GRADE_STATUS.draft);
     return (
       <Card pad={14}>
         <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
@@ -54,6 +74,10 @@
             <div style={{ textAlign:'center', minWidth:62 }}>
               <label style={{ display:'block', fontSize:10.5, color:theme.muted, marginBottom:3 }}>{t('total')}</label>
               <div style={{ padding:'7px 6px', borderRadius:9, background:theme.creamDeep, fontSize:15, fontWeight:800, color:theme[X.scoreTone(pct)], fontFamily:'Cairo, sans-serif' }}>{total}</div>
+            </div>
+            <div style={{ textAlign:'center', minWidth:70 }}>
+              <label style={{ display:'block', fontSize:10.5, color:theme.muted, marginBottom:3 }}>{lang==='ar'?'النقاط':'Points'} <span style={{ color:theme.mutedSoft }}>/{hours*4}</span></label>
+              <div style={{ padding:'7px 6px', borderRadius:9, background:theme.paperAlt, fontSize:14, fontWeight:800, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{X.fmt2(X.coursePoints(total, hours))} <span dir="ltr" style={{ fontSize:11, color:theme.brown }}>{sc.letter}</span></div>
             </div>
           </div>
           <div style={{ display:'flex', alignItems:'center', gap:7 }}>
@@ -88,6 +112,20 @@
     const [selCourse, setSelCourse] = useState(null);
     const [q, setQ] = useState('');
 
+    // ---- الفصل بحسب المستوى ----
+    const curSem = (db.settings && db.settings.current_semester) || 'y1s1';
+    const courseLevel = (c) => (X.semester(c.semester) || {}).level || 1;
+    const courseLevels = [...new Set(myCourses.map(courseLevel))].sort();
+    const curLevel = (X.semester(curSem) || {}).level || 1;
+    const [cLvl, setCLvl] = useState(null);
+    const activeCLvl = courseLevels.includes(cLvl) ? cLvl : (courseLevels.includes(curLevel) ? curLevel : courseLevels[0]);
+    const levelCourses = myCourses.filter(c=>courseLevel(c)===activeCLvl);
+    const stuLevel = (u) => X.studentLevel(u, curSem) || 1;
+    const studentLevels = [...new Set(myStudents.map(stuLevel))].sort();
+    const [sLvl, setSLvl] = useState(null);
+    const activeSLvl = studentLevels.includes(sLvl) ? sLvl : studentLevels[0];
+    const countBy = (arr, fn) => arr.reduce((o, x) => { const k = fn(x); o[k] = (o[k]||0) + 1; return o; }, {});
+
     // طلاب مقرر معيّن = المسجّلون فيه ∩ الموكلون لي
     const courseStudents = (courseId) => (db.enrollments||[])
       .filter(e=>e.courseId===courseId && myStudentIds.has(e.studentId))
@@ -117,6 +155,7 @@
 
     const selectedCourse = myCourses.find(c=>c.id===selCourse);
     const filteredStudents = myStudents
+      .filter(s=>stuLevel(s)===activeSLvl)
       .filter(s=>s.name.includes(q)||s.accessKey.includes(q.toUpperCase()))
       .sort((a,b)=>a.accessKey.localeCompare(b.accessKey));
 
@@ -138,9 +177,17 @@
             </div>
             {myCourses.length===0 ? <EmptyState icon="book" title={t('noCoursesB')} /> : (
               <div style={{ display:'grid', gap:12 }}>
-                {myCourses.map(c=>(
-                  <CourseCard key={c.id} course={c} lang={lang} db={db}
-                    right={<Btn size="sm" variant="soft" icon="edit" onClick={()=>{setSelCourse(c.id);setActive('grades');}}>{t('enterGrades')}</Btn>} />
+                {courseLevels.map(lv=>(
+                  <React.Fragment key={lv}>
+                    <div style={{ display:'flex', alignItems:'center', gap:8, marginTop:lv===courseLevels[0]?0:8 }}>
+                      <Icon name="layers" size={15} color={theme.primary} />
+                      <h3 style={{ fontSize:14.5, fontWeight:800, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{X.tr(X.levelSem(lv).levelName, lang)}</h3>
+                    </div>
+                    {myCourses.filter(c=>courseLevel(c)===lv).map(c=>(
+                      <CourseCard key={c.id} course={c} lang={lang} db={db}
+                        right={<Btn size="sm" variant="soft" icon="edit" onClick={()=>{setCLvl(lv);setSelCourse(c.id);setActive('grades');}}>{t('enterGrades')}</Btn>} />
+                    ))}
+                  </React.Fragment>
                 ))}
               </div>
             )}
@@ -155,9 +202,12 @@
                 <Icon name="book" size={18} color={theme.primary} /><h3 style={{ fontWeight:700, color:theme.ink, fontFamily:'Cairo, sans-serif' }}>{t('teachingCourses')}</h3>
               </div>
               <SemesterBanner db={db} lang={lang} compact />
-              <div style={{ display:'grid', gap:8, marginTop:12 }}>
+              <div style={{ marginTop:12 }}>
+                <LevelTabs levels={courseLevels} value={activeCLvl} onChange={(lv)=>{ setCLvl(lv); setSelCourse(null); }} counts={countBy(myCourses, courseLevel)} lang={lang} />
+              </div>
+              <div style={{ display:'grid', gap:8 }}>
                 {myCourses.length===0 ? <p style={{ fontSize:13, color:theme.muted, padding:'16px 0', textAlign:'center' }}>{t('noCoursesB')}</p> :
-                  myCourses.map(c=>{
+                  levelCourses.map(c=>{
                     const on = selCourse===c.id;
                     const n = courseStudents(c.id).length;
                     return (
@@ -220,6 +270,7 @@
                 <Input value={q} onChange={e=>setQ(e.target.value)} placeholder={t('search')} style={{ paddingInlineStart:36 }} />
               </div>
             </div>
+            <LevelTabs levels={studentLevels} value={activeSLvl} onChange={setSLvl} counts={countBy(myStudents, stuLevel)} lang={lang} />
             {myStudents.length===0 ? <EmptyState icon="gradCap" title={t('noDelegated')} /> : (
               <Card pad={0} style={{ overflow:'hidden' }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12, padding:'12px 18px', background:theme.creamDeep, fontSize:12.5, fontWeight:700, color:theme.muted }}>
