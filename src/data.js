@@ -79,31 +79,55 @@
   }
   function onAuthChange(cb) { return sb.auth.onAuthStateChange((_e, session) => cb(session)); }
 
+  // -------- قراءة جدول كامل على دفعات --------
+  // Supabase يُرجع 1000 صف كحد أقصى في الطلب الواحد (max rows). مع كثرة الطلاب والمقررات
+  // تتجاوز جداول مثل enrollments هذا الحد، فكانت الصفوف الزائدة تُقطع بصمت:
+  // يظهر المقرر بلا طلاب، وتحاول المزامنة التلقائية تسجيل طلاب مسجّلين أصلًا
+  // فتفشل بخطأ «مفتاح مكرر» وتُعاد المزامنة فتختفي التعديلات. لذا نقرأ على صفحات
+  // بترتيب ثابت حتى نجمع كل الصفوف.
+  const PAGE = 1000;
+  async function selectAll(table, columns, orderCols) {
+    const rows = [];
+    let total = null;
+    for (;;) {
+      let q = sb.from(table).select(columns || '*', total === null ? { count: 'exact' } : undefined);
+      (orderCols || []).forEach((c) => { q = q.order(c); });
+      q = q.range(rows.length, rows.length + PAGE - 1);
+      const r = await q;
+      if (r.error) return rows.length ? { data: rows, error: null } : r;
+      const got = r.data || [];
+      if (total === null && r.count != null) total = r.count;
+      rows.push(...got);
+      if (!got.length || (total != null ? rows.length >= total : got.length < PAGE)) break;
+    }
+    return { data: rows, error: null };
+  }
+
   // -------- تحميل كل البيانات المرئية (حسب RLS) --------
   async function loadDB() {
     const [profiles, dels, grades, assigns, beh, scheds, anns, shared, cloud,
            settings, courses, cTeachers, enrolls, tStudents, cGrades, tSections] = await Promise.all([
-      sb.from('profiles').select('*').order('created_at'),
-      sb.from('delegations').select('*'),
-      sb.from('grades').select('*').order('created_at'),
-      sb.from('assignments').select('*'),
-      sb.from('behavior_scores').select('*'),
-      sb.from('schedules').select('*').order('created_at'),
-      sb.from('announcements').select('*'),
-      sb.from('shared_items').select('*'),
-      sb.from('cloud_items').select('*').order('created_at'),
+      selectAll('profiles', '*', ['created_at', 'id']),
+      selectAll('delegations', '*', ['id']),
+      selectAll('grades', '*', ['created_at', 'id']),
+      selectAll('assignments', '*', ['id']),
+      selectAll('behavior_scores', '*', ['student_id']),
+      selectAll('schedules', '*', ['created_at', 'id']),
+      selectAll('announcements', '*', ['id']),
+      selectAll('shared_items', '*', ['id']),
+      selectAll('cloud_items', '*', ['created_at', 'id']),
       // ---- المنهج والمقررات (قد لا تكون موجودة قبل تشغيل setup-v2.sql) ----
-      sb.from('app_settings').select('*'),
+      selectAll('app_settings', '*', ['key']),
       // ملاحظة: لا نحمّل file_data (محتوى الملف base64) هنا لأنه قد يكون ضخمًا
       // ويُبطئ كل إعادة تحميل؛ يُجلَب عند الطلب فقط عبر getCourseFile.
       // عمود hours يُضاف في setup-v11 — إن لم يُشغَّل بعد نرجع للأعمدة القديمة دون كسر التحميل
-      sb.from('courses').select('id,diploma,semester,name,code,hours,link,notes,file_name,created_by,created_at').order('code')
-        .then((r) => (r.error ? sb.from('courses').select('id,diploma,semester,name,code,link,notes,file_name,created_by,created_at').order('code') : r)),
-      sb.from('course_teachers').select('*'),
-      sb.from('enrollments').select('*'),
-      sb.from('teacher_students').select('*'),
-      sb.from('course_grades').select('*'),
-      sb.from('teacher_sections').select('*'),
+      selectAll('courses', 'id,diploma,semester,name,code,hours,link,notes,file_name,created_by,created_at', ['code', 'id'])
+        .then((r) => (r.error ? selectAll('courses', 'id,diploma,semester,name,code,link,notes,file_name,created_by,created_at', ['code', 'id']) : r)),
+      selectAll('course_teachers', '*', ['id']),
+      selectAll('enrollments', '*', ['id']),
+      selectAll('teacher_students', '*', ['id']),
+      selectAll('course_grades', '*', ['id']),
+      selectAll('teacher_sections', '*', ['id']),
     ]);
     const behaviorScores = {};
     (beh.data || []).forEach((b) => { behaviorScores[b.student_id] = b.score; });
@@ -260,22 +284,30 @@
     },
     deleteCourse: (id) => sb.from('courses').delete().eq('id', id),
 
-    assignCourseTeacher: (courseId, teacherId, by, id) => sb.from('course_teachers').insert({
-      ...(id ? { id } : {}), course_id: courseId, teacher_id: teacherId, created_by: by || null }),
-    unassignCourseTeacher: (id) => sb.from('course_teachers').delete().eq('id', id),
+    // جداول الربط (إسناد/تسجيل): الإدراج «إن لم يكن موجودًا» — إن كان الربط قائمًا في القاعدة
+    // لا يُعدّ ذلك خطأً (كان يُظهر «تعذّر إنشاء الحساب» ويُلغي التعديلات الجارية).
+    // الحذف بالمفتاح الطبيعي (المقرر+المعلم …) لا بالمعرّف، فيبقى صحيحًا حتى لو اختلف
+    // المعرّف المحلي عن معرّف الصف الموجود مسبقًا في القاعدة.
+    assignCourseTeacher: (courseId, teacherId, by, id) => sb.from('course_teachers').upsert({
+      ...(id ? { id } : {}), course_id: courseId, teacher_id: teacherId, created_by: by || null },
+      { onConflict: 'course_id,teacher_id', ignoreDuplicates: true }),
+    unassignCourseTeacher: (courseId, teacherId) => sb.from('course_teachers').delete().eq('course_id', courseId).eq('teacher_id', teacherId),
 
-    enrollStudent: (courseId, studentId, by, id) => sb.from('enrollments').insert({
-      ...(id ? { id } : {}), course_id: courseId, student_id: studentId, created_by: by || null }),
-    unenroll: (id) => sb.from('enrollments').delete().eq('id', id),
+    enrollStudent: (courseId, studentId, by, id) => sb.from('enrollments').upsert({
+      ...(id ? { id } : {}), course_id: courseId, student_id: studentId, created_by: by || null },
+      { onConflict: 'course_id,student_id', ignoreDuplicates: true }),
+    unenroll: (courseId, studentId) => sb.from('enrollments').delete().eq('course_id', courseId).eq('student_id', studentId),
 
-    assignTeacherStudent: (teacherId, studentId, by, id) => sb.from('teacher_students').insert({
-      ...(id ? { id } : {}), teacher_id: teacherId, student_id: studentId, created_by: by || null }),
-    unassignTeacherStudent: (id) => sb.from('teacher_students').delete().eq('id', id),
+    assignTeacherStudent: (teacherId, studentId, by, id) => sb.from('teacher_students').upsert({
+      ...(id ? { id } : {}), teacher_id: teacherId, student_id: studentId, created_by: by || null },
+      { onConflict: 'teacher_id,student_id', ignoreDuplicates: true }),
+    unassignTeacherStudent: (teacherId, studentId) => sb.from('teacher_students').delete().eq('teacher_id', teacherId).eq('student_id', studentId),
 
     // إسناد مجموعة/فصل كامل للمعلم (توكيل بالمجموعة لا بالأفراد)
-    assignSection: (teacherId, section, by, id) => sb.from('teacher_sections').insert({
-      ...(id ? { id } : {}), teacher_id: teacherId, section, created_by: by || null }),
-    unassignSection: (id) => sb.from('teacher_sections').delete().eq('id', id),
+    assignSection: (teacherId, section, by, id) => sb.from('teacher_sections').upsert({
+      ...(id ? { id } : {}), teacher_id: teacherId, section, created_by: by || null },
+      { onConflict: 'teacher_id,section', ignoreDuplicates: true }),
+    unassignSection: (teacherId, section) => sb.from('teacher_sections').delete().eq('teacher_id', teacherId).eq('section', section),
     // إشعار في صندوق وارد المعلم (عند الإسناد)
     notifyUser: (toId, itemName, by, id) => sb.from('shared_items').insert({
       ...(id ? { id } : {}), from_user_id: by || null, to_user_id: toId,
@@ -298,7 +330,7 @@
   };
 
   window.TCData = {
-    BUILD: 12,
+    BUILD: 13,
     signIn, signOut, getSessionUser, onAuthChange, loadDB,
     uploadCloudFile, removeCloudItem, clearCloud, getDownloadUrl, getCourseFile,
     ...ops,

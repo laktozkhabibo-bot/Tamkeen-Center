@@ -145,7 +145,7 @@
   }
 
   window.CoursesUI = {
-    BUILD: 12, StatusBadge, SemesterBanner, GradeBreakdown, CourseCard, CourseFileLink, openCourseFile };
+    BUILD: 13, StatusBadge, SemesterBanner, GradeBreakdown, CourseCard, CourseFileLink, openCourseFile };
 })();
 
 /* =========================================================================
@@ -294,5 +294,5 @@
   }
 
   window.RecordUI = {
-    BUILD: 12, AcademicRecord, RecordSummary, LevelTable, printRecord };
+    BUILD: 13, AcademicRecord, RecordSummary, LevelTable, printRecord };
 })();

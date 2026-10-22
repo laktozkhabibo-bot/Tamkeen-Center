@@ -115,16 +115,25 @@
       return () => { active = false; };
     }, []);
 
-    const reload = async () => { try { setDb(await TCData.loadDB()); } catch (e) { console.error('reload', e); } };
+    // آخر نسخة معروضة من البيانات — تقرؤها العمليات بدل نسخة قديمة محفوظة في إغلاق (closure)
+    const dbRef = React.useRef(db);
+    dbRef.current = db;
 
     // ترجمة أخطاء الخادم التقنية إلى رسائل واضحة
+    // (كانت كل مخالفة تفرّد تُعرض «تعذّر إنشاء الحساب» حتى عند إسناد مقرر أو تسجيل طالب)
     const friendlyErr = (e) => {
       const msg = (e && e.message) || (typeof e === 'string' ? e : '') || '';
-      if (/duplicate key|profiles_pkey|already exists|unique constraint/i.test(msg))
-        return lang === 'ar'
-          ? 'تعذّر إنشاء الحساب: البيانات مستخدمة بالفعل. إن تكرّر الخطأ، شغّل آخر تحديث لقاعدة البيانات (setup-v5.sql).'
-          : 'Could not create the account: the data is already in use.';
-      return msg || (lang === 'ar' ? 'حدث خطأ غير متوقع' : 'Unexpected error');
+      const ar = lang === 'ar';
+      if (/duplicate key|already exists|unique constraint/i.test(msg)) {
+        if (/profiles_pkey|profiles_access_key/i.test(msg))
+          return ar
+            ? 'تعذّر إنشاء الحساب: البيانات مستخدمة بالفعل. إن تكرّر الخطأ، شغّل آخر تحديث لقاعدة البيانات (setup-v5.sql).'
+            : 'Could not create the account: the data is already in use.';
+        if (/courses_code/i.test(msg))
+          return ar ? 'رمز المقرر مستخدم في مقرر آخر — اختر رمزًا مختلفًا.' : 'This course code is already used by another course.';
+        return ar ? 'هذا السجل موجود مسبقًا، ولم يتغيّر شيء.' : 'This record already exists; nothing was changed.';
+      }
+      return msg || (ar ? 'حدث خطأ غير متوقع' : 'Unexpected error');
     };
 
     // غلاف موحّد: ينفّذ العملية ثم يعيد التحميل بالكامل (للعمليات النادرة فقط)
@@ -151,14 +160,6 @@
           const r = Math.random() * 16 | 0; const v = c === 'x' ? r : (r & 0x3 | 0x8); return v.toString(16);
         });
 
-    // مزامنة صامتة مؤجّلة: تستبدل المعرّفات المؤقتة بمعرّفات الخادم الحقيقية
-    // دون أي وميض مرئي (الواجهة محدّثة مسبقًا تفاؤليًا). تُجمَّع عمليات متتالية.
-    const reconcileTimer = React.useRef(null);
-    const reconcile = () => {
-      clearTimeout(reconcileTimer.current);
-      reconcileTimer.current = setTimeout(() => { reload(); }, 900);
-    };
-
     // طابور كتابة متسلسل: ينفّذ عمليات الخادم بالترتيب نفسه الذي نقر به المستخدم.
     // يضمن أن يُحفظ المقرر (مثلاً) قبل إسناد معلّم له، فلا تقع مخالفة مفتاح أجنبي.
     const writeChain = React.useRef(Promise.resolve());
@@ -168,13 +169,44 @@
       return p;
     };
 
-    // تنفيذ الكتابة في الخلفية (ضمن الطابور)؛ عند الخطأ نُعيد المزامنة لاستعادة الحالة
+    // إعادة تحميل آمنة: تنتظر انتهاء كل الكتابات المعلّقة قبل القراءة، وتعيد المحاولة إن
+    // أُضيفت كتابات جديدة أثناء القراءة. كانت إعادة التحميل تُنفَّذ فورًا (عند أي خطأ مثلاً)
+    // فتأتي بنسخة قديمة من الخادم تمسح الإسنادات التي لم تُكتب بعد — «تُحذف التحديثات من تلقاء نفسها».
+    const reload = async () => {
+      try {
+        for (;;) {
+          const chain = writeChain.current;
+          await chain;
+          if (chain !== writeChain.current) continue;
+          const d = await TCData.loadDB();
+          if (chain !== writeChain.current) continue;
+          setDb(d);
+          return;
+        }
+      } catch (e) { console.error('reload', e); }
+    };
+
+    // مزامنة صامتة مؤجّلة مع الخادم (تُجمَّع عمليات متتالية في مزامنة واحدة).
+    // أخطاء الكتابة تُجمع وتُعرض في تنبيه واحد بعد المزامنة بدل تنبيه لكل عملية.
+    const reconcileTimer = React.useRef(null);
+    const writeErrors = React.useRef([]);
+    const reconcile = () => {
+      clearTimeout(reconcileTimer.current);
+      reconcileTimer.current = setTimeout(async () => {
+        await reload();
+        const msgs = [...new Set(writeErrors.current)];
+        writeErrors.current = [];
+        if (msgs.length) alert(msgs.join('\n'));
+      }, 900);
+    };
+
+    // تنفيذ الكتابة في الخلفية (ضمن الطابور)؛ عند الخطأ نسجّله ونعيد المزامنة لاستعادة الحالة الصحيحة
     const bg = (fn, opts) => enqueue(async () => {
       try {
         const r = await fn();
-        if (r && r.error) { alert(friendlyErr(r.error)); reload(); return; }
+        if (r && r.error) { writeErrors.current.push(friendlyErr(r.error)); reconcile(); return; }
         if (opts && opts.reconcile) reconcile();
-      } catch (e) { alert(friendlyErr(e)); reload(); }
+      } catch (e) { writeErrors.current.push(friendlyErr(e)); reconcile(); }
     });
 
     // إشعار صامت: لا يُنبّه ولا يُعيد المزامنة عند الفشل (الإسناد نفسه هو المهم)
@@ -182,15 +214,20 @@
 
     // ============================================================
     // مزامنة تلقائية: عند إسناد "مجموعة/فصل" لمعلّم، أو إسناد "مقرر" لمعلّم،
-    // يجب أن ينتقل طلاب تلك المجموعة معها فورًا إلى تسجيلات ذلك المقرر —
-    // بدل انتظار تسجيلهم فرديًا يدويًا. تُستدعى بعد كلا نوعي الإسناد (بأي ترتيب).
+    // ينتقل طلاب تلك المجموعة معها فورًا إلى تسجيلات ذلك المقرر.
     // تُسجَّل فقط طلاب المجموعة التي تطابق دبلومة/سنة المقرر نفسه.
+    // مهم: تقتصر المزامنة على الإسناد الجديد فقط (المقرر الجديد × مجموعات المعلم، أو
+    // المجموعة الجديدة × مقررات المعلم). كانت تعيد مزامنة كل مقررات المعلم مع كل إسناد،
+    // فتُعيد تسجيل طلاب سحبتهم الإدارة يدويًا من مقرراته الأخرى (تضيع تعديلات الإدارة)
+    // كلما أُسند للمعلم نفسه مقرر إضافي.
     // ============================================================
-    const syncAutoEnrollments = (snapshotDb, tid) => {
+    const syncAutoEnrollments = (snapshotDb, tid, scope) => {
       const X = window.TCX;
       if (!X) return;
-      const teacherCourseIds = (snapshotDb.courseTeachers || []).filter((ct) => ct.teacherId === tid).map((ct) => ct.courseId);
-      const teacherSectionKeys = (snapshotDb.teacherSections || []).filter((ts) => ts.teacherId === tid).map((ts) => ts.section);
+      const teacherCourseIds = (scope && scope.courseIds) ||
+        (snapshotDb.courseTeachers || []).filter((ct) => ct.teacherId === tid).map((ct) => ct.courseId);
+      const teacherSectionKeys = (scope && scope.sectionKeys) ||
+        (snapshotDb.teacherSections || []).filter((ts) => ts.teacherId === tid).map((ts) => ts.section);
       if (!teacherCourseIds.length || !teacherSectionKeys.length) return;
       const toAdd = [];
       teacherCourseIds.forEach((cid) => {
@@ -292,7 +329,8 @@
       updateBehavior: async (studentId, score) => {
         const v = Math.max(0, Math.min(100, score || 0));
         setDb((prev) => prev ? { ...prev, behaviorScores: { ...prev.behaviorScores, [studentId]: v } } : prev);
-        try { await TCData.updateBehavior(studentId, v, uid); } catch (e) { console.error(e); }
+        // ضمن طابور الكتابة حتى لا تسبقه مزامنة تُعيد القيمة القديمة
+        await enqueue(async () => { try { await TCData.updateBehavior(studentId, v, uid); } catch (e) { console.error(e); } });
       },
 
       // المستخدمون (عبر RPC خادمي)
@@ -423,52 +461,73 @@
         }));
         bg(() => TCData.deleteCourse(id), { reconcile: true });
       },
+      // الإسناد/التسجيل: يُتجاهل إن كان قائمًا (نقرة مزدوجة أو قائمة لم تُغلق)، والحذف بالمفتاح الطبيعي
       assignCourseTeacher: (cid, tid) => {
+        const cur = dbRef.current;
+        if (!cur || cur.courseTeachers.some((x) => x.courseId === cid && x.teacherId === tid)) return;
         const id = newId();
         patchDb((d) => ({ ...d, courseTeachers: [...d.courseTeachers, { id, courseId: cid, teacherId: tid }] }));
         bg(() => TCData.assignCourseTeacher(cid, tid, uid, id), { reconcile: true });
-        const course = db && db.courses.find((c) => c.id === cid);
+        const course = cur.courses.find((c) => c.id === cid);
         notify(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مقرر إليك: ' : 'Course assigned to you: ') + (course ? course.name : ''), uid));
-        // مزامنة تلقائية: تسجيل طلاب مجموعات هذا المعلم (الموكلة إليه سلفًا) في المقرر الجديد
-        if (db) syncAutoEnrollments({ ...db, courseTeachers: [...db.courseTeachers, { id, courseId: cid, teacherId: tid }] }, tid);
+        // مزامنة تلقائية: تسجيل طلاب مجموعات هذا المعلم (الموكلة إليه سلفًا) في هذا المقرر الجديد فقط
+        syncAutoEnrollments({ ...cur, courseTeachers: [...cur.courseTeachers, { id, courseId: cid, teacherId: tid }] }, tid, { courseIds: [cid] });
       },
-      unassignCourseTeacher: optMut(
-        (id) => patchDb((d) => ({ ...d, courseTeachers: d.courseTeachers.filter((x) => x.id !== id) })),
-        (id) => TCData.unassignCourseTeacher(id)),
+      unassignCourseTeacher: (id) => {
+        const row = dbRef.current && dbRef.current.courseTeachers.find((x) => x.id === id);
+        if (!row) return;
+        patchDb((d) => ({ ...d, courseTeachers: d.courseTeachers.filter((x) => !(x.courseId === row.courseId && x.teacherId === row.teacherId)) }));
+        bg(() => TCData.unassignCourseTeacher(row.courseId, row.teacherId));
+      },
       enrollStudent: (cid, sid) => {
+        const cur = dbRef.current;
+        if (!cur || cur.enrollments.some((x) => x.courseId === cid && x.studentId === sid)) return;
         const id = newId();
         patchDb((d) => ({ ...d, enrollments: [...d.enrollments, { id, courseId: cid, studentId: sid }] }));
         bg(() => TCData.enrollStudent(cid, sid, uid, id), { reconcile: true });
       },
-      unenroll: optMut(
-        (id) => patchDb((d) => ({ ...d, enrollments: d.enrollments.filter((x) => x.id !== id) })),
-        (id) => TCData.unenroll(id)),
+      unenroll: (id) => {
+        const row = dbRef.current && dbRef.current.enrollments.find((x) => x.id === id);
+        if (!row) return;
+        patchDb((d) => ({ ...d, enrollments: d.enrollments.filter((x) => !(x.courseId === row.courseId && x.studentId === row.studentId)) }));
+        bg(() => TCData.unenroll(row.courseId, row.studentId));
+      },
       assignTeacherStudent: (tid, sid) => {
+        const cur = dbRef.current;
+        if (!cur || cur.teacherStudents.some((x) => x.teacherId === tid && x.studentId === sid)) return;
         const id = newId();
         patchDb((d) => ({ ...d, teacherStudents: [...d.teacherStudents, { id, teacherId: tid, studentId: sid }] }));
         bg(() => TCData.assignTeacherStudent(tid, sid, uid, id), { reconcile: true });
       },
       // إسناد مجموعة/فصل كامل للمعلم + إشعار في صندوق وارده
       assignSection: (tid, section) => {
+        const cur = dbRef.current;
+        if (!cur || (cur.teacherSections || []).some((x) => x.teacherId === tid && x.section === section)) return;
         const id = newId();
         patchDb((d) => ({ ...d, teacherSections: [...(d.teacherSections||[]), { id, teacherId: tid, section }] }));
         bg(() => TCData.assignSection(tid, section, uid, id), { reconcile: true });
         const label = window.TCX.sectionLabel(section, lang);
         notify(() => TCData.notifyUser(tid, (lang === 'ar' ? 'تم إسناد مجموعة إليك: ' : 'Section assigned to you: ') + label, uid));
-        // مزامنة تلقائية: تسجيل طلاب هذه المجموعة في مقررات هذا المعلم المطابقة لنفس الدبلومة/السنة
-        if (db) syncAutoEnrollments({ ...db, teacherSections: [...(db.teacherSections||[]), { id, teacherId: tid, section }] }, tid);
+        // مزامنة تلقائية: تسجيل طلاب هذه المجموعة الجديدة فقط في مقررات هذا المعلم المطابقة لنفس الدبلومة/السنة
+        syncAutoEnrollments({ ...cur, teacherSections: [...(cur.teacherSections||[]), { id, teacherId: tid, section }] }, tid, { sectionKeys: [section] });
       },
-      unassignSection: optMut(
-        (id) => patchDb((d) => ({ ...d, teacherSections: (d.teacherSections||[]).filter((x) => x.id !== id) })),
-        (id) => TCData.unassignSection(id)),
-      unassignTeacherStudent: optMut(
-        (id) => patchDb((d) => ({ ...d, teacherStudents: d.teacherStudents.filter((x) => x.id !== id) })),
-        (id) => TCData.unassignTeacherStudent(id)),
+      unassignSection: (id) => {
+        const row = dbRef.current && (dbRef.current.teacherSections || []).find((x) => x.id === id);
+        if (!row) return;
+        patchDb((d) => ({ ...d, teacherSections: (d.teacherSections||[]).filter((x) => !(x.teacherId === row.teacherId && x.section === row.section)) }));
+        bg(() => TCData.unassignSection(row.teacherId, row.section));
+      },
+      unassignTeacherStudent: (id) => {
+        const row = dbRef.current && dbRef.current.teacherStudents.find((x) => x.id === id);
+        if (!row) return;
+        patchDb((d) => ({ ...d, teacherStudents: d.teacherStudents.filter((x) => !(x.teacherId === row.teacherId && x.studentId === row.studentId)) }));
+        bg(() => TCData.unassignTeacherStudent(row.teacherId, row.studentId));
+      },
       setStudentStatus: optMut(
         (sid, status) => patchDb((d) => ({ ...d, users: d.users.map((u) => u.accessKey === sid ? { ...u, status } : u) })),
         (sid, status) => TCData.setStudentStatus(sid, status)),
       saveCourseGrade: (sid, cid, g, status) => {
-        const existing = db && db.courseGrades.find((x) => x.studentId === sid && x.courseId === cid);
+        const existing = dbRef.current && dbRef.current.courseGrades.find((x) => x.studentId === sid && x.courseId === cid);
         const rowId = existing ? existing.id : newId();
         patchDb((d) => {
           const fields = { participation: g.participation || 0, midterm: g.midterm || 0, final: g.final || 0, status: status || 'draft', updatedAt: new Date().toISOString() };
@@ -513,7 +572,7 @@
   }
 
   // ---- حماية: فحص اكتمال ملفات الموقع (يكشف الرفع الجزئي فورًا بدل صفحة بيضاء) ----
-  const BUILD = 12;
+  const BUILD = 13;
   const staleFiles = [
     ['src/curriculum.js', window.TCX], ['src/data.js', window.TCData],
     ['src/courses-ui.jsx', window.CoursesUI], ['src/courses-ui.jsx (RecordUI)', window.RecordUI],

@@ -218,7 +218,7 @@
   };
 
   window.TCX = {
-    BUILD: 12,
+    BUILD: 13,
     DIPLOMAS, SEMESTERS, GRADE_PARTS, GRADE_TOTAL, STATUSES, STUDY_TYPES, GRADE_SCALE, DEFAULT_HOURS, GRADE_STATUS,
     YEARS, TIMINGS,
     diploma, semester, status, studyType, tr, gradeTotal, gradePct, scoreTone, nextCode,

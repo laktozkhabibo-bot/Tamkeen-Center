@@ -197,12 +197,27 @@
     );
   }
 
+  // إغلاق القائمة المنسدلة عند النقر خارجها أو بزر Esc (كانت تبقى مفتوحة فوق المقررات)
+  function useDismiss(ref, open, close) {
+    React.useEffect(()=>{
+      if(!open) return;
+      const onDown = (e)=>{ if(ref.current && !ref.current.contains(e.target)) close(); };
+      const onKey = (e)=>{ if(e.key==='Escape') close(); };
+      document.addEventListener('mousedown', onDown);
+      document.addEventListener('touchstart', onDown);
+      document.addEventListener('keydown', onKey);
+      return ()=>{ document.removeEventListener('mousedown', onDown); document.removeEventListener('touchstart', onDown); document.removeEventListener('keydown', onKey); };
+    }, [open]);
+  }
+
   // قائمة منسدلة لاختيار معلم لإسناده للمقرر
   function TeacherPicker({ teachers, assigned, onPick, lang }) {
     const [open, setOpen] = useState(false);
+    const ref = React.useRef(null);
+    useDismiss(ref, open, ()=>setOpen(false));
     const avail = teachers.filter(t=>!assigned.includes(t.accessKey));
     return (
-      <div style={{ position:'relative' }}>
+      <div ref={ref} style={{ position:'relative' }}>
         <button onClick={()=>setOpen(!open)} style={{ display:'inline-flex', alignItems:'center', gap:4, fontSize:12, fontWeight:600, color:theme.primary, background:theme.paper, border:`1px dashed ${theme.line}`, borderRadius:999, padding:'3px 10px', cursor:'pointer', fontFamily:'Cairo, sans-serif' }}>
           <Icon name="plus" size={12} /> {lang==='ar'?'معلم':'Teacher'}
         </button>
@@ -399,9 +414,11 @@
   // قائمة منسدلة لاختيار مجموعة/فصل لإسناده للمعلم
   function SectionPicker({ assigned, onPick, lang }) {
     const [open, setOpen] = useState(false);
+    const ref = React.useRef(null);
+    useDismiss(ref, open, ()=>setOpen(false));
     const avail = X.allSections().filter(s=>!assigned.includes(s.key));
     return (
-      <div style={{ position:'relative' }}>
+      <div ref={ref} style={{ position:'relative' }}>
         <Btn size="sm" variant="primary" icon="plus" onClick={()=>setOpen(!open)}>{lang==='ar'?'إسناد مجموعة':'Assign section'}</Btn>
         {open && (
           <div style={{ position:'absolute', top:'calc(100% + 6px)', insetInlineEnd:0, zIndex:30, background:theme.paper, border:`1px solid ${theme.line}`, borderRadius:12, boxShadow:'0 14px 34px -16px rgba(71,60,40,.4)', padding:6, minWidth:264, maxHeight:300, overflowY:'auto' }}>
